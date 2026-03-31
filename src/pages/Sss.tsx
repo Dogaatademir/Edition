@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  HelpCircle,
   Coffee,
   Package,
   ShieldCheck,
