@@ -1,4 +1,4 @@
-gaia-litter
+edition
 ├── README.md
 ├── eslint.config.js
 ├── index.html
@@ -6,11 +6,19 @@ gaia-litter
 ├── package.json
 ├── postcss.config.js
 ├── public
+│   ├── editionbeyaz.png
+│   ├── editionsiyah.png
+│   ├── gaia.png
+│   ├── gaiaandco.png
 │   ├── gaiaecoactivecarbon.png
+│   ├── gaiaecoactivecarbon10l.png
 │   ├── gaiaecopure.png
 │   ├── gaiapremiumactivecarbon.png
+│   ├── gaiapremiumactivecarbon10l.png
 │   ├── gaiapremiumpure.png
-│   └── vite.svg
+│   ├── gaiapremiumpure10l.png
+│   ├── gaiecopure10l.png
+│   └── littie.png
 ├── src
 │   ├── app
 │   │   ├── App.tsx
@@ -18,32 +26,44 @@ gaia-litter
 │   ├── assets
 │   │   └── react.svg
 │   ├── components
+│   │   ├── CookieBanner.tsx
 │   │   ├── Layout.tsx
 │   │   └── ScrollToTop.tsx
 │   ├── context
 │   │   ├── AuthContext.tsx
 │   │   └── CartContext.tsx
 │   ├── data
-│   │   ├── products.ts
-│   │   └── users.ts
+│   │   └── products.ts
 │   ├── lib
 │   │   └── supabaseClient.ts
 │   ├── pages
 │   │   ├── Abonelik.tsx
-│   │   ├── AbonelikOdeme.tsx
 │   │   ├── Anasayfa.tsx
-│   │   ├── AuthPage.tsx
-│   │   ├── Dukkan.tsx
 │   │   ├── Hakkimizda.tsx
-│   │   ├── Odeme.tsx
-│   │   ├── Profil.tsx
+│   │   ├── Iletisim.tsx
+│   │   ├── Kahveler.tsx
+│   │   ├── Kargo.tsx
+│   │   ├── Kvkk.tsx
+│   │   ├── NotFound.tsx
+│   │   ├── Sss.tsx
+│   │   ├── Toptan.tsx
 │   │   └── Urun.tsx
 │   └── styles
 │       ├── App.css
 │       └── index.css
+├── supabase
+│   ├── config.toml
+│   └── functions
+│       ├── create-order
+│       │   ├── deno.json
+│       │   └── index.ts
+│       └── get-order
+│           ├── deno.json
+│           └── index.ts
 ├── tailwind.config.js
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
 ├── vite.config.ts
+├── yap.txt
 └── yapi.txt

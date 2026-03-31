@@ -17,7 +17,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
+
 
 // --- DUYURU ŞERİDİ (ANNOUNCEMENT BAR) BİLEŞENİ ---
 const AnnouncementBar = () => {
@@ -117,7 +117,6 @@ const CookieBanner = () => {
 // --- SEPET ÇEKMECESİ (CART DRAWER) ---
 const CartDrawer = () => {
   const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, totalPrice } = useCart();
-  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -134,12 +133,7 @@ const CartDrawer = () => {
 
     setIsCartOpen(false);
     const targetPath = hasSubscription ? '/abonelik-odeme' : '/odeme';
-
-    if (isAuthenticated) {
-      navigate(targetPath);
-    } else {
-      navigate('/hesap/giris', { state: { from: { pathname: targetPath } } });
-    }
+    navigate(targetPath);
   };
 
   return (
@@ -342,7 +336,6 @@ const Footer = () => {
 // --- ANA LAYOUT BİLEŞENİ ---
 const Layout = ({ children }: { children: ReactNode }) => {
   const { cartCount, setIsCartOpen } = useCart();
-  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -429,8 +422,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
             </button>
             
             <button 
-              onClick={() => navigate(isAuthenticated ? '/hesap/profil' : '/hesap/giris')} 
-              className={`transition-colors hidden sm:block ${isAuthenticated ? 'text-[#000000]' : 'text-[#555555] hover:text-[#000000]'}`}
+              onClick={() => navigate('/hesap/giris')} 
+              className="transition-colors hidden sm:block text-[#555555] hover:text-[#000000]"
             >
               <User className="h-4 w-4" />
             </button>
@@ -489,8 +482,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
           </div>
           
           <div className="p-6 border-t border-[#E5E5E5] bg-[#FAFAFA] flex flex-col gap-4">
-             <Link to={isAuthenticated ? '/hesap/profil' : '/hesap/giris'} className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000]">
-              <User className="h-4 w-4" /> {isAuthenticated ? 'Hesabım' : 'Giriş Yap / Üye Ol'}
+             <Link to="/hesap/giris" className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000]">
+              <User className="h-4 w-4" /> Giriş Yap / Üye Ol
             </Link>
             <button className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] text-left">
                <Search className="h-4 w-4" /> Arama Yap

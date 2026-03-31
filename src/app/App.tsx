@@ -7,7 +7,7 @@ import Hakkimizda from '../pages/Hakkimizda';
 import Abonelik from '../pages/Abonelik';
 import Urun from '../pages/Urun';
 import { CartProvider } from '../context/CartContext';
-import { AuthProvider } from '../context/AuthContext';
+
 import Sss from '../pages/Sss';
 import Kargo from '../pages/Kargo';
 import Kvkk from '../pages/Kvkk';
@@ -18,7 +18,7 @@ import Iletisim from '../pages/Iletisim';
 
 function App() {
   return (
-    <AuthProvider>
+ 
       <CartProvider>
         <BrowserRouter>
           <ScrollToTop />
@@ -45,7 +45,7 @@ function App() {
           </Layout>
         </BrowserRouter>
       </CartProvider>
-    </AuthProvider>
+
   );
 }
 
