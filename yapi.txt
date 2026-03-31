@@ -1,0 +1,49 @@
+gaia-litter
+├── README.md
+├── eslint.config.js
+├── index.html
+├── package-lock.json
+├── package.json
+├── postcss.config.js
+├── public
+│   ├── gaiaecoactivecarbon.png
+│   ├── gaiaecopure.png
+│   ├── gaiapremiumactivecarbon.png
+│   ├── gaiapremiumpure.png
+│   └── vite.svg
+├── src
+│   ├── app
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── assets
+│   │   └── react.svg
+│   ├── components
+│   │   ├── Layout.tsx
+│   │   └── ScrollToTop.tsx
+│   ├── context
+│   │   ├── AuthContext.tsx
+│   │   └── CartContext.tsx
+│   ├── data
+│   │   ├── products.ts
+│   │   └── users.ts
+│   ├── lib
+│   │   └── supabaseClient.ts
+│   ├── pages
+│   │   ├── Abonelik.tsx
+│   │   ├── AbonelikOdeme.tsx
+│   │   ├── Anasayfa.tsx
+│   │   ├── AuthPage.tsx
+│   │   ├── Dukkan.tsx
+│   │   ├── Hakkimizda.tsx
+│   │   ├── Odeme.tsx
+│   │   ├── Profil.tsx
+│   │   └── Urun.tsx
+│   └── styles
+│       ├── App.css
+│       └── index.css
+├── tailwind.config.js
+├── tsconfig.app.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── vite.config.ts
+└── yapi.txt
