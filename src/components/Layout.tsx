@@ -120,7 +120,6 @@ const CartDrawer = () => {
   
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  const totalQuantity = cartItems.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
   
   const subtotal = shopifyCart ? shopifyCart.subtotal : 0;
   const discount = shopifyCart ? shopifyCart.discount : 0;

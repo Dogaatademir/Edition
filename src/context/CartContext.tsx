@@ -19,6 +19,7 @@ interface CartContextType {
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
   cartCount: number;
+  totalPrice: number; // EKLENDİ: Urun.tsx'teki hatayı gidermek için type eklendi
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -105,6 +106,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
+  // EKLENDİ: Urun.tsx içerisindeki "totalPrice" gereksinimi için sepet toplam fiyatı hesaplaması
+  const totalPrice = cartItems.reduce((total, item) => {
+    // Ürün fiyatı string ("150,00" vb.) veya number gelebilir. Güvenli bir parse işlemi yapıyoruz.
+    const priceStr = String(item.price || 0).replace(/[^\d.,]/g, '').replace(',', '.');
+    const price = parseFloat(priceStr) || 0;
+    return total + (price * item.quantity);
+  }, 0);
+
   return (
     <CartContext.Provider value={{ 
       cartItems, 
@@ -116,7 +125,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       clearCart, 
       isCartOpen, 
       setIsCartOpen, 
-      cartCount 
+      cartCount,
+      totalPrice // EKLENDİ: Context üzerinden dışarıya aktarılıyor
     }}>
       {children}
     </CartContext.Provider>
