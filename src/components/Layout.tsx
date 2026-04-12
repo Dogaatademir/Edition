@@ -1,3 +1,4 @@
+// src/components/Layout.tsx
 import { type ReactNode, useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -17,26 +18,25 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-
+import { useAuth } from '../context/AuthContext'; // Auth context eklendi
 
 // --- DUYURU ŞERİDİ (ANNOUNCEMENT BAR) BİLEŞENİ ---
 const AnnouncementBar = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   
   const messages = [
-    "Çok al az öde. Sepette 2. ürüne %15, 3. üründe %20 indirim",
-    "Tüm siparişlerde 750 TL ve üzeri ücretsiz kargo"
+    "Üçüncü Seçiminiz Bizden: Seçkinizi 3'e tamamlayın, biri ikramımız olsun",
+    "Tüm siparişlerde 850 TL ve üzeri ücretsiz kargo"
   ];
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % messages.length);
-    }, 4000); // 4 saniyede bir kayar
+    }, 4000); 
     return () => clearInterval(timer);
   }, [messages.length]);
 
   return (
-    // Yükseklik h-8'den h-10'a çıkarıldı
     <div className="bg-[#000000] text-[#FFFFFF] h-10 overflow-hidden px-4">
       <div 
         className="transition-transform duration-700 ease-in-out flex flex-col w-full h-full"
@@ -44,7 +44,6 @@ const AnnouncementBar = () => {
       >
         {messages.map((msg, i) => (
           <div key={i} className="h-full w-full flex items-center justify-center shrink-0">
-            {/* Punto text-[0.55rem]'den text-[0.65rem]'e çıkarıldı */}
             <span className="font-mono text-[0.65rem] tracking-[0.15em] uppercase text-center">
               {msg}
             </span>
@@ -116,10 +115,21 @@ const CookieBanner = () => {
 
 // --- SEPET ÇEKMECESİ (CART DRAWER) ---
 const CartDrawer = () => {
-  const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, totalPrice } = useCart();
+  const { cartItems, shopifyCart, isLoadingCart, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity } = useCart();
   const navigate = useNavigate();
   
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const totalQuantity = cartItems.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+  
+  const subtotal = shopifyCart ? shopifyCart.subtotal : 0;
+  const discount = shopifyCart ? shopifyCart.discount : 0;
+  const finalPrice = shopifyCart ? shopifyCart.total : 0;
+
+  const freeShippingThreshold = 850;
+  const currentTotalForShipping = Math.max(0, subtotal - discount);
+  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - currentTotalForShipping);
+  const progressPercentage = Math.min(100, (currentTotalForShipping / freeShippingThreshold) * 100);
 
   const handleCheckout = () => {
     setCheckoutError(null);
@@ -160,53 +170,131 @@ const CartDrawer = () => {
 
           <div className="flex-1 overflow-y-auto p-6 bg-[#FAFAFA]">
             {cartItems.length > 0 ? (
-              <div className="space-y-4">
-                {cartItems.map((item: any) => (
-                  <div key={item.id} className="flex gap-4 bg-[#FFFFFF] border border-[#E5E5E5] p-4 group hover:border-[#000000] transition-colors">
-                    <div className="h-24 w-20 bg-[#FAFAFA] border border-[#E5E5E5] flex items-center justify-center p-2 shrink-0">
-                      {item.image ? (
-                         <img src={item.image} alt={item.name} className="h-full w-full object-contain mix-blend-multiply" />
-                      ) : (
-                         <div className="font-mono text-[0.45rem] text-[#888888] tracking-[0.1em] -rotate-90 whitespace-nowrap">
-                           {item.code || `KOD-${item.id}`}
-                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex flex-1 flex-col justify-between py-1">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-mono text-[0.5rem] tracking-[0.15em] uppercase text-[#888888] mb-1">
-                             {item.roast || "Taze Kavrum"}
-                          </div>
-                          <h4 className="font-serif text-[1rem] text-[#000000] leading-snug">{item.name}</h4>
-                        </div>
-                        <button 
-                          onClick={() => { removeFromCart(item.id); setCheckoutError(null); }} 
-                          className="text-[#888888] hover:text-[#000000] transition-colors ml-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mt-4">
-                        {!item.isSubscription ? (
-                          <div className="flex items-center border border-[#E5E5E5] bg-[#FFFFFF]">
-                            <button onClick={() => updateQuantity(item.id, -1)} className="px-2 py-1.5 text-[#555555] hover:bg-[#FAFAFA] hover:text-[#000000] transition-colors"><Minus className="h-3 w-3" /></button>
-                            <span className="font-mono text-[0.65rem] px-3 text-[#000000]">{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.id, 1)} className="px-2 py-1.5 text-[#555555] hover:bg-[#FAFAFA] hover:text-[#000000] transition-colors"><Plus className="h-3 w-3" /></button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 border border-[#000000] px-2 py-1">
-                            <Info className="h-3 w-3 text-[#000000]" />
-                            <span className="font-mono text-[0.5rem] tracking-[0.15em] uppercase text-[#000000]">Abonelik</span>
-                          </div>
-                        )}
-                        <span className="font-mono font-semibold text-[0.95rem] text-[#000000]">{item.price}</span>
-                      </div>
-                    </div>
+              <div className="flex flex-col gap-5">
+                
+                <div className="bg-[#FFFFFF] border border-[#E5E5E5] px-4 py-4 flex flex-col gap-3 shadow-sm">
+                  <div className="font-sans text-[0.8rem] text-[#555555] text-center">
+                    {remainingForFreeShipping > 0 ? (
+                      <>Ücretsiz Kargo için <strong className="text-[#000000] font-medium">{remainingForFreeShipping.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</strong> değerinde ürün ekleyin.</>
+                    ) : (
+                      <span className="text-[#000000] font-medium">🎉 Sepetiniz ücretsiz kargo hakkı kazandı!</span>
+                    )}
                   </div>
-                ))}
+                  <div className="h-1.5 w-full bg-[#FAFAFA] border border-[#E5E5E5] overflow-hidden">
+                    <div 
+                      className="h-full bg-[#000000] transition-all duration-700 ease-out"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {isLoadingCart && !shopifyCart ? (
+                    <div className="animate-pulse flex flex-col gap-4">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="flex gap-4 bg-[#FFFFFF] border border-[#E5E5E5] p-4">
+                          <div className="h-24 w-20 bg-[#E5E5E5] shrink-0"></div>
+                          <div className="flex flex-1 flex-col justify-between py-1">
+                            <div className="h-4 bg-[#E5E5E5] w-2/3 mb-2"></div>
+                            <div className="h-3 bg-[#E5E5E5] w-1/3"></div>
+                            <div className="flex justify-between items-end mt-4">
+                              <div className="h-8 bg-[#E5E5E5] w-20"></div>
+                              <div className="h-5 bg-[#E5E5E5] w-16"></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    shopifyCart?.lines?.map((line: any) => {
+                      const localItem = cartItems.find(
+                        (item: any) => item.id === line.variantId || item.variantId === line.variantId
+                      );
+                      const itemId = localItem?.id ?? line.variantId ?? line.id;
+                      const totalCartQty = localItem?.quantity ?? line.quantity;
+                      const isSubscription = localItem?.isSubscription || false;
+                      const isFree = line.discountedPrice === 0 || line.originalPrice > line.discountedPrice;
+
+                      return (
+                        <div key={line.id} className={`flex gap-4 bg-[#FFFFFF] border border-[#E5E5E5] p-4 group hover:border-[#000000] transition-colors ${isLoadingCart ? 'opacity-70 pointer-events-none' : 'opacity-100'}`}>
+                          <div className="h-24 w-20 bg-[#FAFAFA] border border-[#E5E5E5] flex items-center justify-center p-2 shrink-0">
+                            {line.image ? (
+                               <img src={line.image} alt={line.title} className="h-full w-full object-contain mix-blend-multiply" />
+                            ) : (
+                               <div className="font-mono text-[0.45rem] text-[#888888] tracking-[0.1em] -rotate-90 whitespace-nowrap">
+                                 {localItem?.code || `KOD-${itemId}`}
+                               </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex flex-1 flex-col justify-between py-1">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-mono text-[0.5rem] tracking-[0.15em] uppercase text-[#888888] mb-1">
+                                   {localItem?.roast || "Taze Kavrum"}
+                                </div>
+                                <h4 className="font-serif text-[1rem] text-[#000000] leading-snug">{line.title}</h4>
+                                {line.discountTitles && line.discountTitles.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                    {line.discountTitles.map((label: string) => (
+                                      <span
+                                        key={label}
+                                        className="inline-flex items-center gap-1 font-mono text-[0.5rem] tracking-[0.1em] uppercase text-[#888888]"
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                        </svg>
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <button 
+                                onClick={() => {
+                                  setCheckoutError(null);
+                                  if (totalCartQty - line.quantity <= 0) {
+                                    removeFromCart(itemId);
+                                  } else {
+                                    updateQuantity(itemId, -line.quantity);
+                                  }
+                                }} 
+                                className="text-[#888888] hover:text-[#000000] transition-colors ml-2"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                            
+                            <div className="flex items-center justify-between mt-4">
+                              {!isSubscription ? (
+                                <div className="flex items-center border border-[#E5E5E5] bg-[#FFFFFF]">
+                                  <button onClick={() => updateQuantity(itemId, -1)} disabled={line.quantity <= 1} className="px-2 py-1.5 text-[#555555] hover:bg-[#FAFAFA] hover:text-[#000000] disabled:opacity-30 transition-colors"><Minus className="h-3 w-3" /></button>
+                                  <span className="font-mono text-[0.65rem] px-3 text-[#000000]">{line.quantity}</span>
+                                  <button onClick={() => updateQuantity(itemId, 1)} className="px-2 py-1.5 text-[#555555] hover:bg-[#FAFAFA] hover:text-[#000000] transition-colors"><Plus className="h-3 w-3" /></button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 border border-[#000000] px-2 py-1">
+                                  <Info className="h-3 w-3 text-[#000000]" />
+                                  <span className="font-mono text-[0.5rem] tracking-[0.15em] uppercase text-[#000000]">Abonelik</span>
+                                </div>
+                              )}
+                              <div className="flex flex-col items-end">
+                                {isFree && (
+                                  <span className="font-mono text-[0.65rem] text-[#AAAAAA] line-through">
+                                    ₺{(line.originalPrice * line.quantity).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                )}
+                                <span className={`font-mono font-semibold text-[0.95rem] ${line.discountedPrice === 0 ? 'text-[#000000] italic' : 'text-[#000000]'}`}>
+                                  {line.discountedPrice === 0 ? 'HEDİYE' : `₺${(line.discountedPrice * line.quantity).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             ) : (
               <div className="flex h-full flex-col items-center justify-center text-center px-4">
@@ -226,7 +314,8 @@ const CartDrawer = () => {
           </div>
 
           {cartItems.length > 0 && (
-            <div className="border-t border-[#E5E5E5] bg-[#FFFFFF] p-6 mt-auto">
+            <div className={`border-t border-[#E5E5E5] bg-[#FFFFFF] p-6 mt-auto transition-opacity ${isLoadingCart ? 'opacity-70' : 'opacity-100'}`}>
+              
               {checkoutError && (
                 <div className="flex items-start gap-3 p-4 bg-[#FAFAFA] border border-[#000000] mb-4">
                   <AlertCircle className="h-4 w-4 text-[#000000] shrink-0 mt-0.5" />
@@ -234,23 +323,44 @@ const CartDrawer = () => {
                 </div>
               )}
               
-              <div className="flex justify-between items-center mb-6">
-                <span className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-[#888888]">Ara Toplam</span>
-                <span className="font-mono font-semibold text-[1.2rem] text-[#000000]">
-                  ₺{totalPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                </span>
+              <div className="flex flex-col gap-2 mb-6">
+                {discount > 0 && (
+                  <div className="flex justify-between items-center text-[#555555] pb-2 border-b border-[#E5E5E5] border-dashed">
+                    <span className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-[#888888]">Sepet İndirimi</span>
+                    <span className="font-mono font-medium text-[0.9rem] text-[#000000]">
+                      - ₺{discount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center pt-1">
+                  <span className="font-mono text-[0.65rem] tracking-[0.2em] uppercase text-[#000000]">
+                    {isLoadingCart ? 'Hesaplanıyor...' : 'Ara Toplam'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {discount > 0 && (
+                      <span className="font-mono text-[0.9rem] text-[#AAAAAA] line-through">
+                        ₺{subtotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      </span>
+                    )}
+                    <span className="font-mono font-semibold text-[1.3rem] text-[#000000]">
+                      ₺{finalPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
               </div>
               
               <button 
                 onClick={handleCheckout} 
+                disabled={isLoadingCart || (!shopifyCart && !isLoadingCart)}
                 className={`w-full py-4 font-mono text-[0.65rem] tracking-[0.15em] uppercase transition-colors flex items-center justify-center gap-3 ${
-                  checkoutError 
+                  checkoutError || isLoadingCart || (!shopifyCart && !isLoadingCart)
                     ? 'bg-[#E5E5E5] text-[#888888] cursor-not-allowed border border-[#E5E5E5]' 
                     : 'bg-[#000000] text-[#FFFFFF] border border-[#000000] hover:bg-[#555555] hover:border-[#555555]'
                 }`}
               >
-                {checkoutError ? 'Sepeti Düzenle' : 'Ödemeye Geç'}
-                {!checkoutError && <ArrowRight className="w-4 h-4" />}
+                {checkoutError ? 'Sepeti Düzenle' : isLoadingCart ? '...' : 'Ödemeye Geç'}
+                {!checkoutError && !isLoadingCart && <ArrowRight className="w-4 h-4" />}
               </button>
             </div>
           )}
@@ -280,7 +390,6 @@ const Footer = () => {
             <h4 className="font-mono text-[0.55rem] tracking-[0.2em] uppercase text-[#555555] mb-6">Atölye</h4>
             <ul className="space-y-4">
               <li><Link to="/kahveler" className="font-sans font-light text-[0.85rem] text-[#FFFFFF] hover:text-[#888888] transition-colors">Tüm Seçki</Link></li>
-              <li><Link to="/abonelik" className="font-sans font-light text-[0.85rem] text-[#FFFFFF] hover:text-[#888888] transition-colors">Abonelik Programı</Link></li>
               <li><Link to="/hakkimizda" className="font-sans font-light text-[0.85rem] text-[#FFFFFF] hover:text-[#888888] transition-colors">Hakkımızda</Link></li>
               <li><Link to="/toptan" className="font-sans font-light text-[0.85rem] text-[#FFFFFF] hover:text-[#888888] transition-colors">Toptan Satış</Link></li>
             </ul>
@@ -323,9 +432,14 @@ const Footer = () => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-6 font-mono text-[0.55rem] tracking-[0.2em] uppercase text-[#555555]">
             <span>EST. 2019 / ANK</span>
             <span className="hidden sm:inline">|</span>
-            <span className="hover:text-[#FFFFFF] transition-colors cursor-pointer">
-              Developed by Doğa Ata Demir
-            </span>
+            <a 
+              href="https://www.opsiron.com" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:text-[#FFFFFF] transition-colors cursor-pointer"
+            >
+              Designed by Opsiron
+            </a>
           </div>
         </div>
       </div>
@@ -336,40 +450,30 @@ const Footer = () => {
 // --- ANA LAYOUT BİLEŞENİ ---
 const Layout = ({ children }: { children: ReactNode }) => {
   const { cartCount, setIsCartOpen } = useCart();
+  const { isAuthenticated } = useAuth(); // Auth durumu çekildi
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Mobil Menü Stateleri
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileKahvelerOpen, setIsMobileKahvelerOpen] = useState(false);
 
-  // Sayfa değiştiğinde mobil menüyü kapat
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname, location.search]);
 
-  // Genel Link Class'ı
   const navLinkClass = "font-mono text-[0.6rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-[1px] after:bottom-[-4px] after:left-0 after:bg-[#000000] after:origin-bottom-right hover:after:scale-x-100 hover:after:origin-bottom-left after:transition-transform after:duration-300";
-  
-  // Dropdown İçi Link Class'ı
   const dropdownLinkClass = "font-mono text-[0.6rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] transition-colors block py-1.5";
 
   return (
     <div className="min-h-screen w-full bg-[#FFFFFF] font-sans text-[#000000] flex flex-col selection:bg-[#000000] selection:text-[#FFFFFF]">
       
-      {/* HEADER GÜNCELLEMESİ:
-        Duyuru şeridinin yüksekliği h-10 (40px) olduğu için 
-        genel header yüksekliği h-[130px]'e çıktı. 
-      */}
       <header className="fixed top-0 left-0 right-0 z-50 flex flex-col bg-[#FFFFFF]/90 backdrop-blur-md border-b border-[#E5E5E5] transition-all">
         
         <AnnouncementBar />
 
         <div className="relative mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 lg:px-10 h-[90px]">
           
-          {/* SOL: HAMBURGER (Mobil/Tablet) & NAVİGASYON (Masaüstü) */}
           <div className="flex items-center h-full">
-            {/* Hamburger İkonu (1024px altında görünür) */}
             <button 
               className="lg:hidden text-[#555555] hover:text-[#000000] transition-colors"
               onClick={() => setIsMobileMenuOpen(true)}
@@ -378,7 +482,6 @@ const Layout = ({ children }: { children: ReactNode }) => {
               <Menu className="h-6 w-6" strokeWidth={1.5} />
             </button>
 
-            {/* Masaüstü Navigasyon (1024px ve üzerinde görünür) */}
             <nav className="hidden lg:flex gap-8 items-center h-full">
               <Link to="/" className={navLinkClass}>
                 Ana Sayfa
@@ -410,19 +513,18 @@ const Layout = ({ children }: { children: ReactNode }) => {
             </nav>
           </div>
 
-          {/* ORTA: SİYAH LOGO (Tüm ekranlarda mutlak ortalanmış) */}
           <Link to="/" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 block h-16 md:h-20">
             <img src="/editionsiyah.png" alt="edi-TION" className="h-full w-auto object-contain" />
           </Link>
 
-          {/* SAĞ: İKONLAR */}
           <div className="flex items-center gap-4 lg:gap-6">
             <button className="text-[#555555] hover:text-[#000000] transition-colors hidden sm:block">
                <Search className="h-4 w-4" />
             </button>
             
+            {/* Masaüstü: Giriş durumuna göre yönlendirme */}
             <button 
-              onClick={() => navigate('/hesap/giris')} 
+              onClick={() => navigate(isAuthenticated ? '/hesap' : '/hesap/giris')} 
               className="transition-colors hidden sm:block text-[#555555] hover:text-[#000000]"
             >
               <User className="h-4 w-4" />
@@ -441,7 +543,6 @@ const Layout = ({ children }: { children: ReactNode }) => {
         </div>
       </header>
 
-      {/* --- MOBİL MENÜ ÇEKMECESİ --- */}
       <>
         <div 
           className={`fixed inset-0 z-[60] bg-[#000000]/40 backdrop-blur-sm transition-opacity lg:hidden duration-500 ${isMobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
@@ -482,8 +583,12 @@ const Layout = ({ children }: { children: ReactNode }) => {
           </div>
           
           <div className="p-6 border-t border-[#E5E5E5] bg-[#FAFAFA] flex flex-col gap-4">
-             <Link to="/hesap/giris" className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000]">
-              <User className="h-4 w-4" /> Giriş Yap / Üye Ol
+            {/* Mobil Menü: Giriş durumuna göre metin ve yönlendirme değişimi */}
+            <Link 
+              to={isAuthenticated ? '/hesap' : '/hesap/giris'} 
+              className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000]"
+            >
+              <User className="h-4 w-4" /> {isAuthenticated ? 'Hesabım' : 'Giriş Yap / Üye Ol'}
             </Link>
             <button className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] text-left">
                <Search className="h-4 w-4" /> Arama Yap
@@ -494,9 +599,6 @@ const Layout = ({ children }: { children: ReactNode }) => {
       
       <CartDrawer />
       
-      {/* MAIN GÜNCELLEMESİ: 
-        Header yüksekliği 130px olduğu için içeriğin menü altında kalmaması adına pt-[130px] yapıldı
-      */}
       <main className="pt-[130px] flex-grow flex flex-col">
         {children}
       </main>

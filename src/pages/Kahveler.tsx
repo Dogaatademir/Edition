@@ -1,7 +1,8 @@
+// src/pages/Kahveler.tsx
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SlidersHorizontal, ArrowDownAZ, Check, ChevronDown, X } from 'lucide-react';
-import { products, type CoffeeProduct } from '../data/products';
+import { fetchShopifyProducts, type CoffeeProduct } from '../lib/shopify';
 import { useCart } from '../context/CartContext';
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
@@ -21,7 +22,6 @@ function useReveal(threshold = 0.12) {
 }
 
 // --- YARDIMCI TİPLER VE FONKSİYONLAR ---
-
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
 type FilterOption = 'all' | 'turk-kahvesi' | 'filtre' | 'espresso' | 'paket';
 
@@ -30,14 +30,27 @@ const parsePrice = (priceStr: string): number => {
   return parseFloat(priceStr.replace(/[^\d,.-]/g, '').replace(',', '.'));
 };
 
-// --- ÜRÜN KARTI ---
+// ─── YÜKLEME İSKELETİ ─────────────────────────────────────────────────────────
+const SkeletonCard = () => (
+  <div className="border-r border-b border-[#E5E5E5] p-7 bg-[#FAFAFA] flex flex-col h-full animate-pulse">
+    <div className="w-full aspect-square bg-[#E5E5E5] mb-5" />
+    <div className="h-4 bg-[#E5E5E5] rounded mb-3 w-3/4" />
+    <div className="h-6 bg-[#E5E5E5] rounded mb-3 w-full" />
+    <div className="h-4 bg-[#E5E5E5] rounded mb-5 w-1/2" />
+    <div className="mt-auto flex justify-between items-center pt-4 border-t border-[#E5E5E5]">
+      <div className="h-6 bg-[#E5E5E5] rounded w-20" />
+      <div className="w-8 h-8 bg-[#E5E5E5]" />
+    </div>
+  </div>
+);
 
+// --- ÜRÜN KARTI ---
 const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct) => void }) => {
   const navigate = useNavigate();
 
   return (
     <div
-      onClick={() => navigate(`/urun/${p.id}`)}
+      onClick={() => navigate(`/urun/${p.handle}`)}
       className="group relative border-r border-b border-[#E5E5E5] p-7 cursor-pointer bg-[#FAFAFA] transition-colors hover:bg-[#F0F0F0] flex flex-col h-full"
     >
       <div className="flex justify-between items-start mb-6">
@@ -67,10 +80,12 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct)
 
       <div className="flex-grow">
         <div className="font-mono text-[0.55rem] tracking-[0.2em] uppercase text-[#888888] mb-1">
-          {p.origin || 'KÖKEN GİRİLMEDİ'} · {p.process || 'İŞLEM GİRİLMEDİ'}
+          {p.origin || 'KÖKEN GİRİLMEDİ'} {p.process ? `· ${p.process}` : ''}
         </div>
         <div className="font-serif text-[1.15rem] text-[#000000] leading-[1.15] mb-1.5">{p.name}</div>
-        <div className="font-mono text-[0.58rem] tracking-[0.08em] text-[#888888] mb-4">{p.process} işlem</div>
+        {p.process && (
+          <div className="font-mono text-[0.58rem] tracking-[0.08em] text-[#888888] mb-4">{p.process} işlem</div>
+        )}
         
         <div className="flex flex-wrap gap-1.5 mb-5">
           {p.notes?.map((n) => (
@@ -96,6 +111,7 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct)
         <button 
           onClick={(e) => {
             e.stopPropagation();
+            e.preventDefault();
             onAdd(p);
           }}
           className="w-8 h-8 border border-[#000000] bg-[#000000] text-[#FFFFFF] flex items-center justify-center font-mono opacity-0 translate-y-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 hover:bg-[#555555] hover:border-[#555555]"
@@ -109,7 +125,6 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct)
 };
 
 // --- HERO BÖLÜMÜ ---
-
 const ShopHero = () => {
   const heroReveal = useReveal();
 
@@ -143,9 +158,11 @@ const ShopHero = () => {
 };
 
 // --- DÜKKAN ANA BİLEŞENİ ---
-
 const Kahveler = () => {
-  const [displayedProducts, setDisplayedProducts] = useState<CoffeeProduct[]>(products as CoffeeProduct[]);
+  const [allProducts, setAllProducts] = useState<CoffeeProduct[]>([]);
+  const [displayedProducts, setDisplayedProducts] = useState<CoffeeProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [sortOption, setSortOption] = useState<SortOption>('default');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   
@@ -154,10 +171,21 @@ const Kahveler = () => {
 
   const sortRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
-  const gridReveal = useReveal(0.05); // Grid animasyonu için Hook
+  const gridReveal = useReveal(0.05);
 
   const { addToCart } = useCart();
   const location = useLocation();
+
+  useEffect(() => {
+    setLoading(true);
+    fetchShopifyProducts()
+      .then(data => {
+        setAllProducts(data);
+        setDisplayedProducts(data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -182,7 +210,7 @@ const Kahveler = () => {
 
   // FİLTRELEME VE SIRALAMA MANTIĞI
   useEffect(() => {
-    let result = [...(products as CoffeeProduct[])];
+    let result = [...allProducts];
 
     if (filterOption !== 'all') {
       result = result.filter(p => p.category && p.category.includes(filterOption));
@@ -202,12 +230,11 @@ const Kahveler = () => {
         result.sort((a, b) => b.name.localeCompare(a.name));
         break;
       default:
-        result.sort((a, b) => a.id - b.id); 
         break;
     }
 
     setDisplayedProducts(result);
-  }, [sortOption, filterOption]);
+  }, [sortOption, filterOption, allProducts]);
 
   const SortItem = ({ label, value }: { label: string, value: SortOption }) => (
     <button 
@@ -237,7 +264,7 @@ const Kahveler = () => {
         <div className="max-w-[1440px] mx-auto px-10 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
           
           <div className="font-mono text-[0.65rem] tracking-[0.15em] text-[#555555] uppercase">
-            Gösterilen: <span className="text-[#000000] font-bold">{displayedProducts.length}</span> Ürün
+            Gösterilen: <span className="text-[#000000] font-bold">{loading ? '-' : displayedProducts.length}</span> Ürün
           </div>
           
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
@@ -300,15 +327,19 @@ const Kahveler = () => {
         </div>
       </div>
 
-      {/* ÜRÜN GRIDI (Staggered Animasyon) */}
+      {/* ÜRÜN GRIDI */}
       <div className="max-w-[1440px] mx-auto px-10 pb-32 overflow-hidden" ref={gridReveal.ref}>
-        {displayedProducts.length > 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-l border-t border-[#E5E5E5] mt-10">
+            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : displayedProducts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-l border-t border-[#E5E5E5] mt-10">
             {displayedProducts.map((product, idx) => (
               <div 
                 key={product.id}
                 className={`h-full transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${gridReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}`}
-                style={{ transitionDelay: `${(idx % 12) * 75}ms` }} // Dalgavari (staggered) yüklenme efekti
+                style={{ transitionDelay: `${(idx % 12) * 75}ms` }}
               >
                 <ProductCard 
                   p={product}

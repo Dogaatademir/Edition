@@ -1,7 +1,8 @@
+// src/pages/Anasayfa.tsx
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { products, type CoffeeProduct } from "../data/products";
 import { useCart } from "../context/CartContext";
+import { fetchShopifyProducts, type CoffeeProduct } from "../lib/shopify";
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 function useReveal(threshold = 0.12) {
@@ -10,8 +11,8 @@ function useReveal(threshold = 0.12) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { 
-      if (e.isIntersecting) { setVisible(true); obs.disconnect(); } 
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setVisible(true); obs.disconnect(); }
     }, { threshold });
     obs.observe(el);
     return () => obs.disconnect();
@@ -19,14 +20,14 @@ function useReveal(threshold = 0.12) {
   return { ref, visible };
 }
 
-// ─── ALT BİLEŞEN: ÜRÜN KARTI ──────────────────────────────────────────────────
-const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct) => void }) => {
+// ─── ALT BİLEŞEN: ÜRÜN KARTI ─────────────────────────────────────────────────
+const ProductCard = ({ p, onAdd }: { p: CoffeeProduct; onAdd: (p: CoffeeProduct) => void }) => {
   const [, setIsHovered] = useState(false);
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   return (
     <div
-      onClick={() => navigate(`/urun/${p.id}`)}
+      onClick={() => navigate(`/urun/${p.handle}`)}
       className="group relative border-r border-b border-[#E5E5E5] p-4 md:p-7 cursor-pointer bg-[#FAFAFA] transition-colors hover:bg-[#F0F0F0] flex flex-col h-full"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -58,11 +59,12 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct)
 
       <div className="flex-grow">
         <div className="font-mono text-[0.45rem] md:text-[0.55rem] tracking-[0.2em] uppercase text-[#888888] mb-1">
-          {p.origin} · {p.process}
+          {p.origin} {p.process ? `· ${p.process}` : ""}
         </div>
         <div className="font-serif text-[0.95rem] md:text-[1.15rem] text-[#000000] leading-[1.15] mb-1.5">{p.name}</div>
-        <div className="font-mono text-[0.5rem] md:text-[0.58rem] tracking-[0.08em] text-[#888888] mb-3 md:mb-4">{p.process} işlem</div>
-        
+        {p.process && (
+          <div className="font-mono text-[0.5rem] md:text-[0.58rem] tracking-[0.08em] text-[#888888] mb-3 md:mb-4">{p.process} işlem</div>
+        )}
         <div className="flex flex-wrap gap-1 md:gap-1.5 mb-4 md:mb-5">
           {p.notes?.map((n) => (
             <span key={n} className="font-mono text-[0.45rem] md:text-[0.56rem] tracking-[0.05em] text-[#555555] border border-[#E5E5E5] px-1.5 md:px-2 py-0.5 transition-colors group-hover:border-[#888888]">
@@ -71,7 +73,7 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct)
           ))}
         </div>
       </div>
-      
+
       <div className="flex items-center justify-between pt-3 md:pt-4 border-t border-[#E5E5E5] mt-auto">
         <div className="flex flex-col">
           {p.oldPrice && (
@@ -83,13 +85,8 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct)
             {p.price}
           </span>
         </div>
-
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            onAdd(p);
-          }}
+        <button
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onAdd(p); }}
           className="w-7 h-7 md:w-8 md:h-8 border border-[#000000] bg-[#000000] text-[#FFFFFF] flex items-center justify-center font-mono opacity-100 md:opacity-0 md:translate-y-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 hover:bg-[#555555] hover:border-[#555555]"
         >
           +
@@ -99,20 +96,88 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct, onAdd: (p: CoffeeProduct)
   );
 };
 
+// ─── YÜKLEME İSKELETİ ─────────────────────────────────────────────────────────
+const SkeletonCard = () => (
+  <div className="border-r border-b border-[#E5E5E5] p-4 md:p-7 bg-[#FAFAFA] flex flex-col h-full animate-pulse">
+    <div className="w-full aspect-square bg-[#E5E5E5] mb-4" />
+    <div className="h-3 bg-[#E5E5E5] rounded mb-2 w-2/3" />
+    <div className="h-5 bg-[#E5E5E5] rounded mb-2 w-full" />
+    <div className="h-3 bg-[#E5E5E5] rounded mb-4 w-1/2" />
+    <div className="mt-auto flex justify-between items-center pt-4 border-t border-[#E5E5E5]">
+      <div className="h-5 bg-[#E5E5E5] rounded w-16" />
+      <div className="w-8 h-8 bg-[#E5E5E5]" />
+    </div>
+  </div>
+);
+
+// ─── KATEGORİ SEKSİYONU ───────────────────────────────────────────────────────
+interface SectionProps {
+  title: string;
+  subtitle: string;
+  titleItalic: string;
+  link: string;
+  products: CoffeeProduct[];
+  loading: boolean;
+  sectionReveal: ReturnType<typeof useReveal>;
+  onAdd: (p: CoffeeProduct) => void;
+  sectionKey: string;
+  bg: string;
+}
+
+const CategorySection = ({ title, subtitle, titleItalic, link, products, loading, sectionReveal, onAdd, sectionKey, bg }: SectionProps) => (
+  <div className={`${bg} border-b border-[#E5E5E5] overflow-hidden`}>
+    <div ref={sectionReveal.ref} className="max-w-[1440px] mx-auto py-12 md:py-20 px-4 md:px-10">
+      <div className={`grid grid-cols-1 sm:grid-cols-[1fr_auto] items-end gap-4 md:gap-8 mb-8 md:mb-12 pb-4 md:pb-6 border-b border-[#E5E5E5] transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${sectionReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
+        <div>
+          <div className="font-mono text-[0.5rem] md:text-[0.58rem] tracking-[0.35em] uppercase text-[#888888] mb-2 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#888888]">
+            {subtitle}
+          </div>
+          <h2 className="font-serif text-[clamp(1.5rem,3.5vw,3rem)] text-[#000000] leading-[1.05] tracking-[-0.02em]">
+            {title} <em className="italic text-[#555555]">{titleItalic}</em>
+          </h2>
+        </div>
+        <a href={link} className="font-mono text-[0.55rem] md:text-[0.6rem] tracking-[0.15em] uppercase text-[#888888] flex items-center gap-1.5 transition-colors hover:text-[#000000] whitespace-nowrap">
+          Tümünü Gör →
+        </a>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 border-l border-t border-[#E5E5E5]">
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+          : products.slice(0, 4).map((p, idx) => (
+            <div
+              key={`${sectionKey}-${p.id}`}
+              className={`h-full transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${sectionReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}`}
+              style={{ transitionDelay: `${idx * 150}ms` }}
+            >
+              <ProductCard p={p} onAdd={onAdd} />
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+);
+
 // ─── HOMEPAGE ─────────────────────────────────────────────────────────────────
 export default function Anasayfa() {
   const { addToCart } = useCart();
   const [isPageLoaded, setIsPageLoaded] = useState(false);
+  const [allProducts, setAllProducts] = useState<CoffeeProduct[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Sayfa yüklendiğinde hero animasyonlarını tetiklemek için
     setIsPageLoaded(true);
+    fetchShopifyProducts()
+      .then(setAllProducts)
+      .catch((err) => console.error("Ürünler yüklenemedi:", err))
+      .finally(() => setLoading(false));
   }, []);
-  
-  const turkKahveleri = products.filter(p => p.category.includes('turk-kahvesi') && p.showOnHome).slice(0, 4);
-  const filtreKahveler = products.filter(p => p.category.includes('filtre') && p.showOnHome).slice(0, 4);
-  const espressolar = products.filter(p => p.category.includes('espresso') && p.showOnHome).slice(0, 4);
-  const paketler = products.filter(p => p.category.includes('paket') && p.showOnHome).slice(0, 4);
+
+  const turkKahveleri = allProducts.filter(p => p.category.some(t => t.toLowerCase().includes("turk-kahvesi")));
+  const filtreKahveler = allProducts.filter(p => p.category.some(t => t.toLowerCase().includes("filtre")));
+  const espressolar    = allProducts.filter(p => p.category.some(t => t.toLowerCase().includes("espresso")));
+  const paketler       = allProducts.filter(p => p.category.some(t => t.toLowerCase().includes("paket")));
 
   const turkKahvesiSection = useReveal();
   const filtreKahveSection = useReveal();
@@ -124,30 +189,10 @@ export default function Anasayfa() {
   const [isDragging, setIsDragging] = useState(false);
 
   const heroSlides = [
-    {
-      title: "Türk Kahvesi",
-      subtitle: "Geleneksel & Nitelikli",
-      image: "https://plus.unsplash.com/premium_photo-1732818135469-3bfc10ed83a2?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8dHVya2lzaCUyMGNvZmZlZXxlbnwwfDB8MHx8fDA%3D",
-      link: "/kahveler?kategori=turk-kahvesi"
-    },
-    {
-      title: "Filtre Kahve",
-      subtitle: "Demleme Profilleri",
-      image: "https://images.unsplash.com/photo-1638202518327-956c496a5240?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZmlsdGVyJTIwY29mZmVlfGVufDB8MHwwfHx8MA%3D%3D", 
-      link: "/kahveler?kategori=filtre"
-    },
-    {
-      title: "Espresso",
-      subtitle: "Yoğun & Gövdeli",
-      image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?q=80&w=2000&auto=format&fit=crop", 
-      link: "/kahveler?kategori=espresso"
-    },
-    {
-      title: "Avantajlı Paketler",
-      subtitle: "Özel Seçkiler",
-      image: "https://images.unsplash.com/photo-1559525839-b184a4d698c7?q=80&w=2000&auto=format&fit=crop", 
-      link: "/kahveler?kategori=paket" 
-    }
+    { title: "Türk Kahvesi", subtitle: "Geleneksel & Nitelikli", image: "https://plus.unsplash.com/premium_photo-1732818135469-3bfc10ed83a2?w=900&auto=format&fit=crop&q=60", link: "/kahveler?kategori=turk-kahvesi" },
+    { title: "Filtre Kahve",  subtitle: "Demleme Profilleri",    image: "https://images.unsplash.com/photo-1638202518327-956c496a5240?w=900&auto=format&fit=crop&q=60", link: "/kahveler?kategori=filtre" },
+    { title: "Espresso",      subtitle: "Yoğun & Gövdeli",       image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?q=80&w=2000&auto=format&fit=crop", link: "/kahveler?kategori=espresso" },
+    { title: "Avantajlı Paketler", subtitle: "Özel Seçkiler",    image: "https://images.unsplash.com/photo-1559525839-b184a4d698c7?q=80&w=2000&auto=format&fit=crop", link: "/kahveler?kategori=paket" },
   ];
 
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
@@ -167,26 +212,20 @@ export default function Anasayfa() {
   const handleDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDragging) return;
     setIsDragging(false);
-    
     const endX = 'changedTouches' in e ? e.changedTouches[0].clientX : (e as React.MouseEvent).clientX;
     const diffX = dragStartX - endX;
-
-    if (Math.abs(diffX) > 50) {
-      if (diffX > 0) nextSlide();
-      else prevSlide();
-    }
+    if (Math.abs(diffX) > 50) { if (diffX > 0) nextSlide(); else prevSlide(); }
   };
 
   return (
     <div className="bg-[#FFFFFF] text-[#000000] min-h-screen font-sans selection:bg-[#000000] selection:text-[#FFFFFF] overflow-hidden">
-      
       <style>{`
         @keyframes tickerRun { from { transform: translateX(0); } to { transform: translateX(-50%); } }
         .animate-ticker { animation: tickerRun 35s linear infinite; display: inline-flex; }
       `}</style>
 
-      {/* ─── 1. FOTOĞRAFLI HERO SLIDER ─── */}
-      <section 
+      {/* ─── 1. HERO SLIDER ─── */}
+      <section
         className="relative w-full h-[80vh] min-h-[500px] overflow-hidden bg-[#000000]"
         onMouseDown={handleDragStart}
         onMouseUp={handleDragEnd}
@@ -194,39 +233,25 @@ export default function Anasayfa() {
         onTouchStart={handleDragStart}
         onTouchEnd={handleDragEnd}
       >
-        <div 
+        <div
           className="flex w-full h-full transition-transform duration-1000 ease-[cubic-bezier(0.25,1,0.5,1)]"
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
           {heroSlides.map((slide, idx) => (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               className="w-full h-full flex-shrink-0 relative group cursor-pointer"
-              onClick={() => {
-                if (!isDragging) window.location.href = slide.link;
-              }}
+              onClick={() => { if (!isDragging) window.location.href = slide.link; }}
             >
-              <img 
-                src={slide.image} 
-                alt={slide.title} 
-                className="w-full h-full object-cover opacity-90 transition-transform duration-[15s] group-hover:scale-105" 
-                draggable="false"
-              />
-              
+              <img src={slide.image} alt={slide.title} className="w-full h-full object-cover opacity-90 transition-transform duration-[15s] group-hover:scale-105" draggable="false" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent pointer-events-none" />
-              
               <div className="absolute inset-0 flex flex-col items-center justify-center text-[#FFFFFF] pointer-events-none z-10 px-4 text-center">
-                {/* Alt başlık: En erken gelir */}
                 <span className={`font-mono text-[0.55rem] md:text-[0.65rem] tracking-[0.3em] uppercase mb-4 transition-all duration-[1000ms] ease-out ${isPageLoaded && currentSlide === idx ? 'opacity-80 translate-y-0 delay-[200ms]' : 'opacity-0 translate-y-8'}`}>
                   {slide.subtitle}
                 </span>
-                
-                {/* Ana Başlık: Biraz daha gecikmeli gelir */}
                 <h2 className={`font-serif text-[clamp(2.5rem,8vw,7rem)] leading-none tracking-[-0.02em] mb-8 drop-shadow-lg transition-all duration-[1000ms] ease-out ${isPageLoaded && currentSlide === idx ? 'opacity-100 translate-y-0 delay-[400ms]' : 'opacity-0 translate-y-8'}`}>
                   <em className="italic">{slide.title}</em>
                 </h2>
-                
-                {/* Buton: En son gelir */}
                 <span className={`font-mono text-[0.55rem] md:text-[0.65rem] tracking-[0.15em] uppercase border border-[#FFFFFF]/50 px-6 py-2.5 md:px-8 md:py-3 backdrop-blur-sm transition-all group-hover:bg-[#FFFFFF] group-hover:text-[#000000] duration-[1000ms] ease-out ${isPageLoaded && currentSlide === idx ? 'opacity-100 translate-y-0 delay-[600ms]' : 'opacity-0 translate-y-8'}`}>
                   Keşfet
                 </span>
@@ -235,46 +260,23 @@ export default function Anasayfa() {
           ))}
         </div>
 
-        {/* Sol Ok */}
-        <button 
-          onClick={(e) => { e.stopPropagation(); prevSlide(); }}
-          className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full border border-[#FFFFFF]/30 text-[#FFFFFF] bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#FFFFFF] hover:text-[#000000] md:opacity-100"
-          aria-label="Önceki"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
+        <button onClick={(e) => { e.stopPropagation(); prevSlide(); }} className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full border border-[#FFFFFF]/30 text-[#FFFFFF] bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#FFFFFF] hover:text-[#000000] md:opacity-100" aria-label="Önceki">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); nextSlide(); }} className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full border border-[#FFFFFF]/30 text-[#FFFFFF] bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#FFFFFF] hover:text-[#000000] md:opacity-100" aria-label="Sonraki">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
         </button>
 
-        {/* Sağ Ok */}
-        <button 
-          onClick={(e) => { e.stopPropagation(); nextSlide(); }}
-          className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full border border-[#FFFFFF]/30 text-[#FFFFFF] bg-black/20 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#FFFFFF] hover:text-[#000000] md:opacity-100"
-          aria-label="Sonraki"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-
-        {/* Alt Nokta (Dot) İndikatörleri */}
         <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 flex gap-2 md:gap-3 z-20">
           {heroSlides.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={(e) => {
-                e.stopPropagation();
-                setCurrentSlide(idx);
-              }}
-              className={`h-1.5 transition-all duration-300 ${
-                currentSlide === idx ? "w-6 md:w-8 bg-[#FFFFFF]" : "w-1.5 bg-[#FFFFFF]/40 hover:bg-[#FFFFFF]/80"
-              }`}
+            <button key={idx} onClick={(e) => { e.stopPropagation(); setCurrentSlide(idx); }}
+              className={`h-1.5 transition-all duration-300 ${currentSlide === idx ? "w-6 md:w-8 bg-[#FFFFFF]" : "w-1.5 bg-[#FFFFFF]/40 hover:bg-[#FFFFFF]/80"}`}
             />
           ))}
         </div>
       </section>
 
-      {/* ─── 2. REFERANS BANNER (TICKER) ─── */}
+      {/* ─── 2. TICKER ─── */}
       <div className="bg-[#000000] py-2 md:py-2.5 overflow-hidden whitespace-nowrap border-y border-[#000000]">
         <div className="animate-ticker">
           {[...Array(2)].map((_, ri) => (
@@ -290,129 +292,20 @@ export default function Anasayfa() {
       </div>
 
       {/* ─── 3. TÜRK KAHVESİ ─── */}
-      <div className="bg-[#FAFAFA] border-b border-[#E5E5E5] overflow-hidden">
-        <div ref={turkKahvesiSection.ref} className="max-w-[1440px] mx-auto py-12 md:py-20 px-4 md:px-10">
-          {/* Başlık Animasyonu */}
-          <div className={`grid grid-cols-1 sm:grid-cols-[1fr_auto] items-end gap-4 md:gap-8 mb-8 md:mb-12 pb-4 md:pb-6 border-b border-[#E5E5E5] transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${turkKahvesiSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
-            <div>
-              <div className="font-mono text-[0.5rem] md:text-[0.58rem] tracking-[0.35em] uppercase text-[#888888] mb-2 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#888888]">
-                Geleneksel & Nitelikli
-              </div>
-              <h2 className="font-serif text-[clamp(1.5rem,3.5vw,3rem)] text-[#000000] leading-[1.05] tracking-[-0.02em]">
-                Türk <em className="italic text-[#555555]">Kahvesi</em>
-              </h2>
-            </div>
-            <a href="/kahveler?kategori=turk-kahvesi" className="font-mono text-[0.55rem] md:text-[0.6rem] tracking-[0.15em] uppercase text-[#888888] flex items-center gap-1.5 transition-colors hover:text-[#000000] whitespace-nowrap">
-              Tümünü Gör →
-            </a>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 border-l border-t border-[#E5E5E5]">
-            {turkKahveleri.map((p, idx) => (
-              <div 
-                key={`turk-${p.id}`}
-                className={`h-full transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${turkKahvesiSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}`}
-                style={{ transitionDelay: `${idx * 150}ms` }}
-              >
-                <ProductCard p={p} onAdd={addToCart} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <CategorySection title="Türk" titleItalic="Kahvesi" subtitle="Geleneksel & Nitelikli" link="/kahveler?kategori=turk-kahvesi"
+        products={turkKahveleri} loading={loading} sectionReveal={turkKahvesiSection} onAdd={addToCart} sectionKey="turk" bg="bg-[#FAFAFA]" />
 
       {/* ─── 4. FİLTRE KAHVE ─── */}
-      <div className="bg-[#FFFFFF] border-b border-[#E5E5E5] overflow-hidden">
-        <div ref={filtreKahveSection.ref} className="max-w-[1440px] mx-auto py-12 md:py-20 px-4 md:px-10">
-          <div className={`grid grid-cols-1 sm:grid-cols-[1fr_auto] items-end gap-4 md:gap-8 mb-8 md:mb-12 pb-4 md:pb-6 border-b border-[#E5E5E5] transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${filtreKahveSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
-            <div>
-              <div className="font-mono text-[0.5rem] md:text-[0.58rem] tracking-[0.35em] uppercase text-[#888888] mb-2 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#888888]">
-                Demleme Profilleri
-              </div>
-              <h2 className="font-serif text-[clamp(1.5rem,3.5vw,3rem)] text-[#000000] leading-[1.05] tracking-[-0.02em]">
-                Filtre <em className="italic text-[#555555]">Kahve</em>
-              </h2>
-            </div>
-            <a href="/kahveler?kategori=filtre" className="font-mono text-[0.55rem] md:text-[0.6rem] tracking-[0.15em] uppercase text-[#888888] flex items-center gap-1.5 transition-colors hover:text-[#000000] whitespace-nowrap">
-              Tümünü Gör →
-            </a>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 border-l border-t border-[#E5E5E5]">
-            {filtreKahveler.map((p, idx) => (
-              <div 
-                key={`filtre-${p.id}`}
-                className={`h-full transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${filtreKahveSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}`}
-                style={{ transitionDelay: `${idx * 150}ms` }}
-              >
-                <ProductCard p={p} onAdd={addToCart} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <CategorySection title="Filtre" titleItalic="Kahve" subtitle="Demleme Profilleri" link="/kahveler?kategori=filtre"
+        products={filtreKahveler} loading={loading} sectionReveal={filtreKahveSection} onAdd={addToCart} sectionKey="filtre" bg="bg-[#FFFFFF]" />
 
       {/* ─── 5. ESPRESSO ─── */}
-      <div className="bg-[#FAFAFA] border-b border-[#E5E5E5] overflow-hidden">
-        <div ref={espressoSection.ref} className="max-w-[1440px] mx-auto py-12 md:py-20 px-4 md:px-10">
-          <div className={`grid grid-cols-1 sm:grid-cols-[1fr_auto] items-end gap-4 md:gap-8 mb-8 md:mb-12 pb-4 md:pb-6 border-b border-[#E5E5E5] transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${espressoSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
-            <div>
-              <div className="font-mono text-[0.5rem] md:text-[0.58rem] tracking-[0.35em] uppercase text-[#888888] mb-2 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#888888]">
-                Yoğun & Gövdeli
-              </div>
-              <h2 className="font-serif text-[clamp(1.5rem,3.5vw,3rem)] text-[#000000] leading-[1.05] tracking-[-0.02em]">
-                Espresso <em className="italic text-[#555555]">Çekirdekleri</em>
-              </h2>
-            </div>
-            <a href="/kahveler?kategori=espresso" className="font-mono text-[0.55rem] md:text-[0.6rem] tracking-[0.15em] uppercase text-[#888888] flex items-center gap-1.5 transition-colors hover:text-[#000000] whitespace-nowrap">
-              Tümünü Gör →
-            </a>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 border-l border-t border-[#E5E5E5]">
-            {espressolar.map((p, idx) => (
-              <div 
-                key={`espresso-${p.id}`}
-                className={`h-full transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${espressoSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}`}
-                style={{ transitionDelay: `${idx * 150}ms` }}
-              >
-                <ProductCard p={p} onAdd={addToCart} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <CategorySection title="Espresso" titleItalic="Çekirdekleri" subtitle="Yoğun & Gövdeli" link="/kahveler?kategori=espresso"
+        products={espressolar} loading={loading} sectionReveal={espressoSection} onAdd={addToCart} sectionKey="espresso" bg="bg-[#FAFAFA]" />
 
       {/* ─── 6. AVANTAJLI PAKETLER ─── */}
-      <div className="bg-[#FFFFFF] border-b border-[#E5E5E5] overflow-hidden">
-        <div ref={paketlerSection.ref} className="max-w-[1440px] mx-auto py-12 md:py-20 px-4 md:px-10">
-          <div className={`grid grid-cols-1 sm:grid-cols-[1fr_auto] items-end gap-4 md:gap-8 mb-8 md:mb-12 pb-4 md:pb-6 border-b border-[#E5E5E5] transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${paketlerSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
-            <div>
-              <div className="font-mono text-[0.5rem] md:text-[0.58rem] tracking-[0.35em] uppercase text-[#888888] mb-2 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#888888]">
-                Özel Seçkiler
-              </div>
-              <h2 className="font-serif text-[clamp(1.5rem,3.5vw,3rem)] text-[#000000] leading-[1.05] tracking-[-0.02em]">
-                Avantajlı <em className="italic text-[#555555]">Paketler</em>
-              </h2>
-            </div>
-            <a href="/kahveler?kategori=paket" className="font-mono text-[0.55rem] md:text-[0.6rem] tracking-[0.15em] uppercase text-[#888888] flex items-center gap-1.5 transition-colors hover:text-[#000000] whitespace-nowrap">
-              Tümünü Gör →
-            </a>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 border-l border-t border-[#E5E5E5]">
-            {paketler.map((p, idx) => (
-              <div 
-                key={`paket-${p.id}`}
-                className={`h-full transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${paketlerSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-16"}`}
-                style={{ transitionDelay: `${idx * 150}ms` }}
-              >
-                <ProductCard p={p} onAdd={addToCart} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <CategorySection title="Avantajlı" titleItalic="Paketler" subtitle="Özel Seçkiler" link="/kahveler?kategori=paket"
+        products={paketler} loading={loading} sectionReveal={paketlerSection} onAdd={addToCart} sectionKey="paket" bg="bg-[#FFFFFF]" />
 
     </div>
   );
