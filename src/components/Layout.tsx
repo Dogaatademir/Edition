@@ -89,8 +89,7 @@ const CookieBanner = () => {
           </div>
           <h4 className="font-serif text-[1.2rem] text-[#000000] mb-2 leading-tight">Deneyim Onayı</h4>
           <p className="font-sans font-light text-[0.85rem] text-[#555555] leading-relaxed">
-            Size daha iyi bir kavurma atölyesi deneyimi sunmak için çerezleri kullanıyoruz.
-            <Link to="/kvkk" className="text-[#000000] border-b border-[#000000] ml-2 hover:text-[#555555] hover:border-[#555555] transition-colors">Detaylar</Link>
+            Alışveriş deneyiminizi iyiletirmek için yasal düzenlemelere uygun çerezler(cookies) kullanıyoruz. Detaylı bilgiye Gizlilik ve Çerez Politikası sayfamızdan erişebilirsiniz. <Link to="/kvkk" className="text-[#000000] border-b border-[#000000] ml-2 hover:text-[#555555] hover:border-[#555555] transition-colors">Detaylar</Link>
           </p>
         </div>
 
@@ -99,14 +98,9 @@ const CookieBanner = () => {
             onClick={() => handleAction('accepted')}
             className="flex-1 bg-[#000000] text-[#FFFFFF] px-4 py-3 font-mono text-[0.6rem] uppercase tracking-[0.15em] border border-[#000000] hover:bg-[#555555] hover:border-[#555555] transition-colors"
           >
-            Kabul Et
+            Anladım
           </button>
-          <button 
-            onClick={() => handleAction('declined')}
-            className="flex-1 bg-transparent text-[#555555] px-4 py-3 font-mono text-[0.6rem] uppercase tracking-[0.15em] border border-[#E5E5E5] hover:border-[#000000] hover:text-[#000000] transition-colors"
-          >
-            Reddet
-          </button>
+         
         </div>
       </div>
     </div>

@@ -20,6 +20,8 @@ const Kahveler = lazy(() => import('../pages/Kahveler'));
 const Toptan = lazy(() => import('../pages/Toptan'));
 const Iletisim = lazy(() => import('../pages/Iletisim'));
 const Odeme = lazy(() => import('../pages/Odeme'));
+const SifreYenile = lazy(() => import('../pages/SifreYenile'));
+
 
 // Yeni Eklenen Müşteri / Hesap Sayfaları
 const Giris = lazy(() => import('../pages/Giris'));
@@ -98,7 +100,7 @@ function App() {
                 <Route path="/hesap/kayit" element={<Kayit />} />
                 <Route path="/hesap" element={<Hesap />} />
                 <Route path="/hesap/sifremi-unuttum" element={<SifremiUnuttum />} />
-                
+                <Route path="/account/reset/:id/:token" element={<SifreYenile />} />
                 {/* DİĞER SAYFALAR */}
                 <Route path="/sss" element={<Sss />} />
                 <Route path="/kargo" element={<Kargo />} />

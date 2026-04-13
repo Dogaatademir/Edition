@@ -26,7 +26,6 @@ export interface CoffeeProduct {
   brewingGuide?: string;
 }
 
-// 1. TEKİL ÜRÜN ÇEVİRİCİ (Sadece Urun.tsx kullanır - İçinde gramaj seçici çıkması için)
 export function mapShopifyProduct(p: any): CoffeeProduct {
   const price = parseFloat(p.priceRange?.minVariantPrice?.amount || "0");
   const compareAt = parseFloat(p.compareAtPriceRange?.minVariantPrice?.amount ?? "0");
@@ -61,7 +60,6 @@ export function mapShopifyProduct(p: any): CoffeeProduct {
   };
 }
 
-// ORTAK AYARLAR
 const domain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
 const token  = import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN;
 const url = `https://${domain}/api/2024-01/graphql.json`;
@@ -71,7 +69,6 @@ const headers = {
   "X-Shopify-Storefront-Access-Token": token,
 };
 
-// 2. TÜM ÜRÜNLERİ VARYANTLARINA BÖLEREK ÇEK (Anasayfa ve Kahveler için)
 export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
   if (!domain || !token) return [];
 
@@ -150,7 +147,6 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
   }
 }
 
-// 3. TEKİL ÜRÜN ÇEK (Urun.tsx için - Gramaj Seçimi Çıksın Diye)
 export async function fetchShopifyProductByHandle(handle: string): Promise<CoffeeProduct | null> {
   if (!domain || !token) return null;
 
@@ -200,10 +196,6 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Coffe
     return null;
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. MÜŞTERİ YÖNETİMİ (MÜŞTERİ API)
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function customerLogin(email: string, password: string) {
   if (!domain || !token) throw new Error("Shopify ENV eksik");
@@ -262,7 +254,6 @@ export async function customerCreate(email: string, password: string, firstName?
   }
 }
 
-// 🌟 GÜNCELLENDİ: Sipariş geçmişini ve adresi çekecek şekilde genişletildi.
 export async function getCustomerDetails(accessToken: string) {
   if (!domain || !token) return null;
 
@@ -275,9 +266,30 @@ export async function getCustomerDetails(accessToken: string) {
         email 
         phone
         defaultAddress {
+          id
+          firstName
+          lastName
           address1
+          address2
           city
+          province
           country
+          zip
+        }
+        addresses(first: 10) {
+          edges {
+            node {
+              id
+              firstName
+              lastName
+              address1
+              address2
+              city
+              province
+              country
+              zip
+            }
+          }
         }
         orders(first: 20, sortKey: PROCESSED_AT, reverse: true) {
           edges {
@@ -287,28 +299,51 @@ export async function getCustomerDetails(accessToken: string) {
               processedAt
               financialStatus
               fulfillmentStatus
-              currentTotalPrice {
-                amount
-                currencyCode
+              currentTotalPrice { amount currencyCode }
+              subtotalPriceV2 { amount currencyCode }
+              totalShippingPriceV2 { amount currencyCode }
+              totalTaxV2 { amount currencyCode }
+              successfulFulfillments {
+                trackingInfo {
+                  number
+                  url
+                }
+              }
+              shippingAddress {
+                firstName
+                lastName
+                address1
+                address2
+                city
+                province
+                country
+                zip
+                phone
+              }
+              billingAddress {
+                firstName
+                lastName
+                address1
+                address2
+                city
+                province
+                country
+                zip
               }
               lineItems(first: 20) {
-  edges {
-    node {
-      title
-      quantity
-      variant {
-        title
-        priceV2 {
-          amount
-          currencyCode
-        }
-        image { # Bu bloğun sorguda olduğundan emin ol
-          url
-        }
-      }
-    }
-  }
-}
+                edges {
+                  node {
+                    title
+                    quantity
+                    variant {
+                      id
+                      title
+                      priceV2 { amount currencyCode }
+                      image { url }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -322,11 +357,116 @@ export async function getCustomerDetails(accessToken: string) {
       headers,
       body: JSON.stringify({ query, variables: { customerAccessToken: accessToken } }),
     });
+    
     const json = await res.json();
     return json.data?.customer;
   } catch (err) {
     console.error("Shopify Müşteri Bilgisi Çekme Hatası:", err);
     return null;
+  }
+}
+
+export async function updateCustomerProfile(accessToken: string, customerData: { firstName?: string; lastName?: string; phone?: string; }) {
+  if (!domain || !token) throw new Error("Shopify ENV eksik");
+
+  const query = `
+    mutation customerUpdate($customerAccessToken: String!, $customer: CustomerUpdateInput!) {
+      customerUpdate(customerAccessToken: $customerAccessToken, customer: $customer) {
+        customer { id firstName lastName phone }
+        customerUserErrors { code field message }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables: { customerAccessToken: accessToken, customer: customerData } }),
+    });
+    const json = await res.json();
+    return json.data?.customerUpdate;
+  } catch (err) {
+    console.error("Shopify Profil Güncelleme Hatası:", err);
+    throw err;
+  }
+}
+
+export async function createCustomerAddress(accessToken: string, address: { firstName?: string; lastName?: string; address1: string; address2?: string; city: string; zip: string; country?: string; }) {
+  if (!domain || !token) throw new Error("Shopify ENV eksik");
+
+  const query = `
+    mutation customerAddressCreate($customerAccessToken: String!, $address: MailingAddressInput!) {
+      customerAddressCreate(customerAccessToken: $customerAccessToken, address: $address) {
+        customerAddress { id firstName lastName address1 address2 city zip country }
+        customerUserErrors { code field message }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables: { customerAccessToken: accessToken, address } }),
+    });
+    const json = await res.json();
+    return json.data?.customerAddressCreate;
+  } catch (err) {
+    console.error("Shopify Adres Ekleme Hatası:", err);
+    throw err;
+  }
+}
+
+export async function updateCustomerAddress(accessToken: string, id: string, address: { firstName?: string; lastName?: string; address1?: string; address2?: string; city?: string; zip?: string; country?: string; }) {
+  if (!domain || !token) throw new Error("Shopify ENV eksik");
+
+  const query = `
+    mutation customerAddressUpdate($customerAccessToken: String!, $id: ID!, $address: MailingAddressInput!) {
+      customerAddressUpdate(customerAccessToken: $customerAccessToken, id: $id, address: $address) {
+        customerAddress { id firstName lastName address1 address2 city zip country }
+        customerUserErrors { code field message }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables: { customerAccessToken: accessToken, id, address } }),
+    });
+    const json = await res.json();
+    return json.data?.customerAddressUpdate;
+  } catch (err) {
+    console.error("Shopify Adres Güncelleme Hatası:", err);
+    throw err;
+  }
+}
+
+export async function deleteCustomerAddress(accessToken: string, id: string) {
+  if (!domain || !token) throw new Error("Shopify ENV eksik");
+
+  const query = `
+    mutation customerAddressDelete($customerAccessToken: String!, $id: ID!) {
+      customerAddressDelete(customerAccessToken: $customerAccessToken, id: $id) {
+        deletedCustomerAddressId
+        customerUserErrors { code field message }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables: { customerAccessToken: accessToken, id } }),
+    });
+    const json = await res.json();
+    return json.data?.customerAddressDelete;
+  } catch (err) {
+    console.error("Shopify Adres Silme Hatası:", err);
+    throw err;
   }
 }
 
@@ -355,10 +495,6 @@ export async function recoverCustomerPassword(email: string) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 5. SEPET VE ÖDEME YÖNETİMİ
-// ─────────────────────────────────────────────────────────────────────────────
-
 export interface ShopifyCartResponse {
   checkoutUrl: string;
   subtotal: number;
@@ -368,14 +504,14 @@ export interface ShopifyCartResponse {
   shippingTitle: string | null;
   lines: Array<{
     id: string;
-    variantId?: string; // 🌟 EKLENDİ: Context ve varyantları eşleştirmek için
+    variantId?: string;
     title: string;
     quantity: number;
     originalPrice: number;
     discountedPrice: number;
     image?: string;
     variantTitle?: string;
-    discountTitles?: string[]; // 🌟 EKLENDİ: Ürün bazlı indirim etiketleri
+    discountTitles?: string[];
   }>;
 }
 
@@ -387,7 +523,6 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
     quantity: item.quantity
   }));
 
-  // 1. Adım: Sepeti oluştur ve satırları (lines) çek
   const createQuery = `
     mutation cartCreate($input: CartInput!) {
       cartCreate(input: $input) {
@@ -439,7 +574,6 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
     }
   `;
 
-  // 2. Adım: Türkiye adresiyle deliveryGroups'u çek (Kargo hesabı için)
   const buyerIdentityQuery = `
     mutation cartBuyerIdentityUpdate($cartId: ID!, $buyerIdentity: CartBuyerIdentityInput!) {
       cartBuyerIdentityUpdate(cartId: $cartId, buyerIdentity: $buyerIdentity) {
@@ -490,24 +624,19 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
 
     let totalDiscount = 0;
 
-    // Sepet geneli indirimler
     if (cartData.cart.discountAllocations) {
       cartData.cart.discountAllocations.forEach((alloc: any) => {
         totalDiscount += parseFloat(alloc.discountedAmount.amount);
       });
     }
 
-    // Ürün bazlı indirimler ve satır (line) eşleştirmesi
     const parsedLines = cartData.cart.lines?.edges?.map((edge: any) => {
       const node = edge.node;
       
-      // Toplam ürün indirimini ana toplama ekle + indirim başlıklarını topla
       const discountTitles: string[] = [];
       if (node.discountAllocations) {
         node.discountAllocations.forEach((alloc: any) => {
           totalDiscount += parseFloat(alloc.discountedAmount.amount);
-          // Kod indirimi (CartCodeDiscountAllocation) → alloc.code
-          // Otomatik/özel indirim (CartAutomaticDiscountAllocation / CartCustomDiscountAllocation) → alloc.title
           const label = alloc.code || alloc.title;
           if (label && !discountTitles.includes(label)) {
             discountTitles.push(label);
@@ -523,14 +652,13 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
       let title = node.merchandise?.product?.title || "Bilinmeyen Ürün";
       const variantTitle = node.merchandise?.title;
       
-      // Varyant varsa (örn: 250G) ismin yanına ekle
       if (variantTitle && variantTitle !== "Default Title") {
          title += ` ${variantTitle}`; 
       }
 
       return {
         id: node.id,
-        variantId: node.merchandise?.id, // 🌟 EKLENDİ: Varyant ID eşleştirmesi
+        variantId: node.merchandise?.id,
         title: title,
         quantity: quantity,
         originalPrice: originalPrice,
@@ -601,6 +729,31 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
 
   } catch (err: any) {
     console.error("Shopify Sepet Oluşturma Hatası:", err);
+    throw err;
+  }
+}
+export async function resetCustomerPassword(id: string, input: { password: string; resetToken: string }) {
+  if (!domain || !token) throw new Error("Shopify ENV eksik");
+
+  const query = `
+    mutation customerReset($id: ID!, $input: CustomerResetInput!) {
+      customerReset(id: $id, input: $input) {
+        customerAccessToken { accessToken expiresAt }
+        customerUserErrors { code message }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables: { id, input } }),
+    });
+    const json = await res.json();
+    return json.data?.customerReset;
+  } catch (err) {
+    console.error("Shopify Şifre Reset Hatası:", err);
     throw err;
   }
 }
