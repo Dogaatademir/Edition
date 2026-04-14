@@ -88,7 +88,7 @@ function App() {
               <Routes>
                 {/* ANA SAYFALAR */}
                 <Route path="/" element={<Anasayfa />} />
-                <Route path="/kahveler" element={<Kahveler />} />
+                <Route path="/cart" element={<Kahveler />} />
                 <Route path="/hakkimizda" element={<Hakkimizda />} />
                 <Route path="/odeme" element={<Odeme />} />
 
