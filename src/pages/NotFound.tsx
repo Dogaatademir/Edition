@@ -22,20 +22,6 @@ const NotFound = () => {
   const location = useLocation();
   const reveal = useReveal();
 
-  // ─── Shopify cart permalink yönlendirmesi ──────────────────────────────────
-  useEffect(() => {
-    if (location.pathname.startsWith('/cart/c/')) {
-      window.location.replace(
-        'https://1ivfm1-wr.myshopify.com' + location.pathname + location.search
-      );
-    }
-  }, [location]);
-
-  if (location.pathname.startsWith('/cart/c/')) {
-    return null;
-  }
-  // ──────────────────────────────────────────────────────────────────────────
-
   return (
     <main className="bg-[#FFFFFF] text-[#000000] min-h-screen font-sans selection:bg-[#000000] selection:text-[#FFFFFF] flex flex-col">
       
