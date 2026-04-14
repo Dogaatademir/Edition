@@ -16,10 +16,8 @@ export default function Giris() {
 
   const handleLoginRedirect = () => {
     setLoading(true);
-    // Shopify Yeni Müşteri Hesapları Login URL'ine yönlendirme.
-    // Not: Headless (PKCE) akışını kurduysanız burası /auth/login gibi bir endpoint'e gitmelidir.
-    // Eğer direkt Shopify'ın account sayfasına atacaksanız sitenizin account URL'sini kullanın.
-    window.location.href = 'https://checkout.editioncoffee.com.tr/account'; 
+    // Shopify Yeni Müşteri Hesapları Login URL'ine yönlendirme
+    window.location.href = 'https://account.editioncoffee.com.tr/account'; 
   };
 
   return (

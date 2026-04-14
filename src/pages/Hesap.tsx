@@ -269,7 +269,6 @@ export default function Hesap() {
       .finally(() => setLoading(false));
   }, [navigate, logout]);
 
-  // Düzenleme moduna geçildiğinde mevcut telefonu parçala ve state'e yaz
   useEffect(() => {
     if (isEditingProfile) {
       const currentPhone = customer?.phone || '';
@@ -287,7 +286,7 @@ export default function Hesap() {
         setPhoneNumber(currentPhone.slice(3));
       } else {
         setCountryCode('+90');
-        setPhoneNumber(currentPhone.replace(/\D/g, '')); // Diğer tüm durumlarda sadece sayıları al
+        setPhoneNumber(currentPhone.replace(/\D/g, ''));
       }
     }
   }, [isEditingProfile, customer]);
@@ -305,7 +304,6 @@ export default function Hesap() {
     const firstName = formData.get('firstName') as string;
     const lastName = formData.get('lastName') as string;
     
-    // Telefonu parçalardan birleştir
     let phone: string | undefined = undefined;
     if (phoneNumber.trim() !== '') {
       phone = `${countryCode}${phoneNumber}`;
@@ -315,16 +313,11 @@ export default function Hesap() {
 
     if (token) {
       try {
-        console.log("Gönderilen Güncel Veriler:", { firstName, lastName, phone });
         const response = await updateCustomerProfile(token, { firstName, lastName, phone });
-        console.log("Shopify API Yanıtı:", response);
         
         if (response?.customerUserErrors && response.customerUserErrors.length > 0) {
-          console.error("Shopify Kullanıcı Hataları (Update):", response.customerUserErrors);
           alert(`Shopify Hatası: ${response.customerUserErrors[0].message}`);
         } else {
-          console.log("Profil başarıyla güncellendi.");
-          
           const currentAddresses = customer?.addresses?.edges ? customer.addresses.edges.map((e:any) => e.node) : 
                                    (customer?.defaultAddress ? [customer.defaultAddress] : []);
           
@@ -339,7 +332,6 @@ export default function Hesap() {
           setIsEditingProfile(false);
         }
       } catch (err) {
-        console.error("Profil güncellenirken hata:", err);
         alert("Profil güncellenirken bir hata oluştu.");
       }
     }
@@ -445,8 +437,6 @@ export default function Hesap() {
       </div>
 
       <div className="max-w-4xl">
-        
-        {/* SİPARİŞLER */}
         {activeTab === 'siparisler' && (
           <div className="space-y-6">
             {orders.length === 0 ? (
@@ -480,7 +470,6 @@ export default function Hesap() {
           </div>
         )}
 
-        {/* KİŞİSEL BİLGİLER */}
         {activeTab === 'profil' && (
           <div className="bg-[#FAFAFA] border border-[#E5E5E5] p-8 md:p-10">
             <div className="flex justify-between items-center mb-8 pb-4 border-b border-[#E5E5E5]">
@@ -509,7 +498,6 @@ export default function Hesap() {
                     <input type="email" disabled defaultValue={customer?.email} className="w-full border-b border-[#E5E5E5] py-2 bg-transparent outline-none text-[#888888] font-sans text-[0.95rem] cursor-not-allowed" />
                   </div>
                   
-                  {/* YENİ TELEFON GİRİŞ ALANI */}
                   <div className="space-y-2">
                     <label className="font-mono text-[0.55rem] uppercase text-[#888888] tracking-widest">Telefon</label>
                     <div className="flex gap-3">
@@ -527,9 +515,9 @@ export default function Hesap() {
                         type="tel" 
                         value={phoneNumber}
                         onChange={(e) => {
-                          let val = e.target.value.replace(/\D/g, ''); // Sadece sayı girmesine izin ver
-                          if (val.startsWith('0')) val = val.substring(1); // İlk rakam 0 olamaz
-                          if (val.length > 10) val = val.substring(0, 10); // Maksimum 10 hane
+                          let val = e.target.value.replace(/\D/g, ''); 
+                          if (val.startsWith('0')) val = val.substring(1); 
+                          if (val.length > 10) val = val.substring(0, 10); 
                           setPhoneNumber(val);
                         }}
                         placeholder="5XX XXX XX XX" 
@@ -567,7 +555,6 @@ export default function Hesap() {
           </div>
         )}
 
-        {/* ADRESLER */}
         {activeTab === 'adresler' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center mb-4">
