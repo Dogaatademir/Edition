@@ -517,7 +517,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             
             {/* Masaüstü: Giriş durumuna göre yönlendirme */}
          <button 
-  onClick={() => isAuthenticated ? navigate('/hesap') : window.location.href = 'https://account.editioncoffee.com.tr/account'} 
+  onClick={() => isAuthenticated ? navigate('/hesap') : window.location.href = 'https://account.editioncoffee.com.tr/'} 
   className="transition-colors hidden sm:block text-[#555555] hover:text-[#000000]"
 >
               <User className="h-4 w-4" />
