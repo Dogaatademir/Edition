@@ -5,7 +5,6 @@ import { useCart } from '../context/CartContext';
 import { Lock, ArrowLeft, ShieldCheck, CreditCard, Truck, X } from 'lucide-react';
 import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
 
-// 1. DEĞİŞİKLİK: replaceCart tipi eklendi
 interface CartContextType {
   cartItems: any[];
   updateQuantity: (id: string | number, delta: number) => void;
@@ -15,23 +14,25 @@ interface CartContextType {
 }
 
 export default function Odeme() {
-  // 2. DEĞİŞİKLİK: replaceCart destructure edildi
   const { cartItems, updateQuantity, removeFromCart, replaceCart } = useCart() as CartContextType;
   const navigate = useNavigate();
-  
+
+  const hasReorderParam = new URLSearchParams(window.location.search).has('reorder');
+  const [reorderProcessed, setReorderProcessed] = useState(!hasReorderParam);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingCart, setIsLoadingCart] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [discountInput, setDiscountInput] = useState('');
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
-  
+
   const [orderNote, setOrderNote] = useState('');
   const [shopifyCart, setShopifyCart] = useState<ShopifyCartResponse | null>(null);
 
-  // 3. DEĞİŞİKLİK: Tekrar sipariş akışı — URL'deki reorder param'ı oku
+  // Tekrar sipariş akışı
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const reorderData = params.get('reorder');
@@ -43,7 +44,12 @@ export default function Odeme() {
       } catch (e) {
         console.error('Reorder parse hatası:', e);
       }
+      setReorderProcessed(true);
     }
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const fetchCartFromShopify = async (codeToApply?: string | null) => {
@@ -53,7 +59,7 @@ export default function Odeme() {
     try {
       const result = await createShopifyCart(cartItems, codeToApply);
       setShopifyCart(result);
-      
+
       if (codeToApply && result.discount === 0) {
         setDiscountError("Girdiğiniz indirim kodu geçersiz veya sepetinize uygun değil.");
         setAppliedCode(null);
@@ -70,18 +76,16 @@ export default function Odeme() {
     }
   };
 
+  // reorderProcessed olmadan eski veriyle Shopify'a gitme
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
-  useEffect(() => {
+    if (!reorderProcessed) return;
     if (cartItems.length === 0) {
       navigate('/kahveler');
       return;
     }
     fetchCartFromShopify(appliedCode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartItems, navigate]);
+  }, [cartItems, navigate, reorderProcessed]);
 
   const handleApplyDiscount = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,9 +103,9 @@ export default function Odeme() {
   const handleCheckoutRedirect = () => {
     if (shopifyCart?.checkoutUrl) {
       setIsProcessing(true);
-      
+
       let finalCheckoutUrl = shopifyCart.checkoutUrl;
-      
+
       if (orderNote.trim() !== '') {
         try {
           const urlObj = new URL(finalCheckoutUrl);
@@ -113,12 +117,12 @@ export default function Odeme() {
           finalCheckoutUrl = `${finalCheckoutUrl}${separator}note=${encodeURIComponent(orderNote.trim())}`;
         }
       }
-      
+
       window.location.href = finalCheckoutUrl;
     }
   };
 
-  if (cartItems.length === 0) return null;
+  if (cartItems.length === 0 && reorderProcessed) return null;
 
   const currentCartTotalForShipping = shopifyCart ? (shopifyCart.subtotal - shopifyCart.discount) : 0;
   const freeShippingThreshold = 850;
@@ -128,7 +132,7 @@ export default function Odeme() {
   return (
     <main className="bg-[#FFFFFF] min-h-screen pt-32 pb-20 font-sans selection:bg-[#000000] selection:text-[#FFFFFF]">
       <div className="mx-auto max-w-[1200px] px-6 md:px-10">
-        
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-6 border-b border-[#E5E5E5]">
           <div>
             <Link to="/kahveler" className="font-mono text-[0.55rem] tracking-[0.2em] uppercase text-[#888888] hover:text-[#000000] transition-colors flex items-center gap-2 mb-4">
@@ -145,16 +149,15 @@ export default function Odeme() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
-          {/* SOL PANEL - Sepet İçeriği ve Bilgilendirme */}
+
+          {/* SOL PANEL */}
           <div className="lg:col-span-8 flex flex-col gap-8">
-            
-            {/* ÜRÜNLER LİSTESİ */}
+
             <div className="bg-[#FFFFFF] border border-[#E5E5E5] p-6 md:p-8">
               <h2 className="font-mono text-[0.7rem] tracking-[0.2em] uppercase text-[#000000] mb-6 pb-4 border-b border-[#E5E5E5]">
                 Sepetiniz
               </h2>
-              
+
               <div className="flex flex-col gap-6">
                 {isLoadingCart && !shopifyCart ? (
                   <div className="animate-pulse flex flex-col gap-6">
@@ -189,17 +192,13 @@ export default function Odeme() {
                           )}
                         </div>
                         <div className="flex flex-col justify-center flex-1">
-                          
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex-1 pr-4">
                               <span className="font-serif text-[1.1rem] text-[#000000] leading-tight block">{line.title}</span>
                               {line.discountTitles && line.discountTitles.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                                   {line.discountTitles.map((label: string) => (
-                                    <span
-                                      key={label}
-                                      className="inline-flex items-center gap-1 font-mono text-[0.55rem] tracking-[0.1em] uppercase text-[#888888]"
-                                    >
+                                    <span key={label} className="inline-flex items-center gap-1 font-mono text-[0.55rem] tracking-[0.1em] uppercase text-[#888888]">
                                       <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                                       </svg>
@@ -209,7 +208,7 @@ export default function Odeme() {
                                 </div>
                               )}
                             </div>
-                            <button 
+                            <button
                               onClick={() => {
                                 if (totalCartQty - line.quantity <= 0) {
                                   removeFromCart(itemId);
@@ -226,11 +225,9 @@ export default function Odeme() {
 
                           <div className="flex items-end justify-between mt-auto">
                             <div className="flex items-center gap-3 border border-[#E5E5E5] px-2 py-1 bg-[#FAFAFA] w-fit">
-                              <button 
+                              <button
                                 type="button"
-                                onClick={() => {
-                                  if (line.quantity > 1) updateQuantity(itemId, -1);
-                                }}
+                                onClick={() => { if (line.quantity > 1) updateQuantity(itemId, -1); }}
                                 disabled={isLoadingCart || line.quantity <= 1}
                                 className="text-[#888888] hover:text-[#000000] disabled:opacity-30 w-5 h-5 flex items-center justify-center text-lg leading-none"
                               >
@@ -239,7 +236,7 @@ export default function Odeme() {
                               <span className="font-mono text-[0.65rem] text-[#000000] min-w-[16px] text-center font-medium">
                                 {line.quantity}
                               </span>
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => updateQuantity(itemId, 1)}
                                 disabled={isLoadingCart}
@@ -248,7 +245,7 @@ export default function Odeme() {
                                 +
                               </button>
                             </div>
-                            
+
                             <div className="flex gap-3 items-center">
                               {isFree && (
                                 <span className="font-mono text-[0.8rem] text-[#AAAAAA] line-through">
@@ -268,7 +265,7 @@ export default function Odeme() {
               </div>
             </div>
 
-            {/* GÜVENLİK VE BİLGİLENDİRME ALANI */}
+            {/* GÜVENLİK VE BİLGİLENDİRME */}
             <div className="bg-[#FAFAFA] border border-[#E5E5E5] p-8 md:p-10">
               <h2 className="font-mono text-[0.7rem] tracking-[0.15em] uppercase text-[#000000] mb-6 flex items-center gap-3">
                 <ShieldCheck className="w-5 h-5 text-[#000000]" />
@@ -277,7 +274,6 @@ export default function Odeme() {
               <p className="font-sans text-[0.95rem] font-light text-[#555555] leading-relaxed mb-6">
                 Ödeme ve teslimat bilgilerinizi yüksek güvenlikli Shopify altyapısı üzerinden tamamlayacaksınız. Adres bilgileri ve kart güvenliğiniz doğrudan global ödeme sağlayıcıları tarafından uçtan uca şifrelenir.
               </p>
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 border-t border-[#E5E5E5] pt-8">
                 <div className="flex flex-col gap-2">
                   <CreditCard className="w-5 h-5 text-[#888888]" />
@@ -300,14 +296,13 @@ export default function Odeme() {
             )}
           </div>
 
-          {/* SAĞ PANEL - Sipariş Özeti */}
+          {/* SAĞ PANEL */}
           <div className="lg:col-span-4">
             <div className="bg-[#FFFFFF] border border-[#E5E5E5] p-6 sticky top-[130px]">
               <h3 className="font-mono text-[0.65rem] tracking-[0.2em] uppercase text-[#000000] mb-6 pb-4 border-b border-[#E5E5E5]">
                 Sipariş Özeti
               </h3>
 
-              {/* KARGO BAREMİ PROGRESS BAR */}
               <div className="bg-[#FAFAFA] border border-[#E5E5E5] px-4 py-4 flex flex-col gap-3 shadow-sm mb-6">
                 <div className="font-sans text-[0.8rem] text-[#555555] text-center">
                   {remainingForFreeShipping > 0 ? (
@@ -317,33 +312,30 @@ export default function Odeme() {
                   )}
                 </div>
                 <div className="h-1.5 w-full bg-[#FFFFFF] border border-[#E5E5E5] overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-[#000000] transition-all duration-700 ease-out"
                     style={{ width: `${progressPercentage}%` }}
                   />
                 </div>
               </div>
 
-              {/* SATICI İÇİN ÖZEL TALİMATLAR */}
               <div className="mb-6">
                 <label htmlFor="orderNote" className="block font-mono text-[0.6rem] tracking-[0.1em] text-[#555555] uppercase mb-2">
                   Satıcı İçin Özel Talimatlar
                 </label>
-                <textarea 
+                <textarea
                   id="orderNote"
                   value={orderNote}
                   onChange={(e) => setOrderNote(e.target.value)}
                   className="w-full bg-[#FAFAFA] border border-[#E5E5E5] px-4 py-3 font-sans text-[0.85rem] text-[#000000] resize-none focus:outline-none focus:border-[#000000] transition-colors placeholder:text-[#AAAAAA]"
-                  rows={3} 
+                  rows={3}
                   placeholder="Siparişinizle ilgili notlarınızı buraya ekleyebilirsiniz..."
                 />
               </div>
 
-              {/* TOPLAMLAR & İNDİRİM UYGULAMA */}
               {!isLoadingCart && shopifyCart && (
                 <>
                   <div className="flex flex-col gap-3 border-t border-[#E5E5E5] pt-6 mb-6">
-                    
                     <div className="mb-4">
                       {appliedCode ? (
                         <div className="flex items-center justify-between bg-[#FAFAFA] border border-[#E5E5E5] p-3">
@@ -355,7 +347,7 @@ export default function Odeme() {
                               {appliedCode}
                             </span>
                           </div>
-                          <button 
+                          <button
                             onClick={handleRemoveDiscount}
                             disabled={isApplyingDiscount}
                             className="text-[#888888] hover:text-[#FF0000] transition-colors disabled:opacity-50"
@@ -365,15 +357,15 @@ export default function Odeme() {
                         </div>
                       ) : (
                         <form onSubmit={handleApplyDiscount} className="flex gap-2">
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             value={discountInput}
                             onChange={(e) => setDiscountInput(e.target.value)}
                             placeholder="İNDİRİM KODU"
                             className="flex-1 bg-[#FAFAFA] border border-[#E5E5E5] px-3 py-3 font-mono text-[0.60rem] tracking-[0.1em] uppercase focus:outline-none focus:border-[#000000] transition-colors placeholder:text-[#AAAAAA]"
                             disabled={isApplyingDiscount}
                           />
-                          <button 
+                          <button
                             type="submit"
                             disabled={!discountInput.trim() || isApplyingDiscount}
                             className="bg-[#000000] text-[#FFFFFF] px-4 font-mono text-[0.6rem] tracking-[0.15em] uppercase disabled:bg-[#E5E5E5] disabled:text-[#888888] transition-colors"
@@ -382,7 +374,6 @@ export default function Odeme() {
                           </button>
                         </form>
                       )}
-                      
                       {discountError && (
                         <p className="mt-2 text-[#FF0000] font-sans text-[0.75rem]">{discountError}</p>
                       )}
@@ -406,9 +397,7 @@ export default function Odeme() {
                           </span>
                         </div>
                         <div className="flex justify-between items-center px-1 mt-1">
-                          <span className="font-sans text-[0.85rem] text-[#555555]">
-                            İndirim Tutarı
-                          </span>
+                          <span className="font-sans text-[0.85rem] text-[#555555]">İndirim Tutarı</span>
                           <span className="font-mono text-[0.9rem] font-semibold text-[#000000]">
                             −₺{shopifyCart.discount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                           </span>
@@ -422,8 +411,7 @@ export default function Odeme() {
                         <span className="font-mono text-[0.85rem] text-[#000000]">
                           {shopifyCart.shippingCost === 0
                             ? <span className="tracking-wide text-[#555555]">ÜCRETSİZ</span>
-                            : `₺${shopifyCart.shippingCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`
-                          }
+                            : `₺${shopifyCart.shippingCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
                         </span>
                       ) : (
                         <span className="font-mono text-[0.70rem] text-[#888888] tracking-wide">
@@ -442,12 +430,12 @@ export default function Odeme() {
                 </>
               )}
 
-              <button 
+              <button
                 onClick={handleCheckoutRedirect}
                 disabled={isProcessing || isLoadingCart || !!error}
                 className={`w-full py-4 font-mono text-[0.60rem] font-bold tracking-[0.15em] uppercase transition-colors flex items-center justify-center gap-3 ${
                   (isProcessing || isLoadingCart || !!error)
-                    ? 'bg-[#E5E5E5] text-[#888888] cursor-not-allowed border border-[#E5E5E5]' 
+                    ? 'bg-[#E5E5E5] text-[#888888] cursor-not-allowed border border-[#E5E5E5]'
                     : 'bg-[#000000] text-[#FFFFFF] border border-[#000000] hover:bg-[#555555] hover:border-[#555555]'
                 }`}
               >
