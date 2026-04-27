@@ -9,6 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "overrides": {
+  "vite": "^7.3.2"
+},
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
