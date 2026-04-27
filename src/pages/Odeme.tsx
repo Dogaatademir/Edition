@@ -5,32 +5,46 @@ import { useCart } from '../context/CartContext';
 import { Lock, ArrowLeft, ShieldCheck, CreditCard, Truck, X } from 'lucide-react';
 import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
 
-// Context için genişletilmiş tip — CartContext.tsx ile birebir uyumlu
+// 1. DEĞİŞİKLİK: replaceCart tipi eklendi
 interface CartContextType {
   cartItems: any[];
   updateQuantity: (id: string | number, delta: number) => void;
   removeFromCart: (id: string | number) => void;
+  replaceCart: (items: any[]) => void;
   [key: string]: any;
 }
 
 export default function Odeme() {
-  const { cartItems, updateQuantity, removeFromCart } = useCart() as CartContextType;
+  // 2. DEĞİŞİKLİK: replaceCart destructure edildi
+  const { cartItems, updateQuantity, removeFromCart, replaceCart } = useCart() as CartContextType;
   const navigate = useNavigate();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingCart, setIsLoadingCart] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // İndirim Kodu State'leri
   const [discountInput, setDiscountInput] = useState('');
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
   
-  // Sipariş Notu State'i
   const [orderNote, setOrderNote] = useState('');
-  
   const [shopifyCart, setShopifyCart] = useState<ShopifyCartResponse | null>(null);
+
+  // 3. DEĞİŞİKLİK: Tekrar sipariş akışı — URL'deki reorder param'ı oku
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reorderData = params.get('reorder');
+    if (reorderData) {
+      try {
+        const items = JSON.parse(decodeURIComponent(atob(reorderData)));
+        replaceCart(items);
+        window.history.replaceState({}, '', '/odeme');
+      } catch (e) {
+        console.error('Reorder parse hatası:', e);
+      }
+    }
+  }, []);
 
   const fetchCartFromShopify = async (codeToApply?: string | null) => {
     setIsLoadingCart(true);
@@ -56,12 +70,10 @@ export default function Odeme() {
     }
   };
 
-  // Sayfa yüklendiğinde bir kez tepeye kaydır (Miktar güncellendiğinde sıçramayı önlemek için ayrıldı)
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Sepet değiştiğinde Shopify'dan güncel sepeti çek
   useEffect(() => {
     if (cartItems.length === 0) {
       navigate('/kahveler');
@@ -84,26 +96,19 @@ export default function Odeme() {
     fetchCartFromShopify(null);
   };
 
-const handleCheckoutRedirect = () => {
+  const handleCheckoutRedirect = () => {
     if (shopifyCart?.checkoutUrl) {
       setIsProcessing(true);
       
       let finalCheckoutUrl = shopifyCart.checkoutUrl;
       
-      // Eğer kullanıcı sipariş notu girdiyse, bunu Shopify checkout URL'sine ekleyelim
       if (orderNote.trim() !== '') {
         try {
           const urlObj = new URL(finalCheckoutUrl);
-          // Shopify URL yapısına notu query parameter olarak ekliyoruz
           urlObj.searchParams.append('note', orderNote.trim());
-          
-          // Bazı Shopify temaları custom attributes okumayı tercih eder, 
-          // garantilemek için attribute olarak da ekleyebiliriz:
           urlObj.searchParams.append('attributes[Sipariş Notu]', orderNote.trim());
-          
           finalCheckoutUrl = urlObj.toString();
         } catch (e) {
-          // Beklenmeyen bir URL formatıysa fallback olarak düz string birleştirme yapalım
           const separator = finalCheckoutUrl.includes('?') ? '&' : '?';
           finalCheckoutUrl = `${finalCheckoutUrl}${separator}note=${encodeURIComponent(orderNote.trim())}`;
         }
@@ -115,7 +120,6 @@ const handleCheckoutRedirect = () => {
 
   if (cartItems.length === 0) return null;
 
-  // --- KARGO BAREMİ HESAPLAMALARI ---
   const currentCartTotalForShipping = shopifyCart ? (shopifyCart.subtotal - shopifyCart.discount) : 0;
   const freeShippingThreshold = 850;
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - currentCartTotalForShipping);
@@ -167,7 +171,6 @@ const handleCheckoutRedirect = () => {
                 ) : (
                   shopifyCart?.lines?.map((line: any) => {
                     const isFree = line.discountedPrice === 0 || line.originalPrice > line.discountedPrice;
-                    // cartItems içinde variantId veya id'si Shopify line.variantId ile eşleşen ürünü bul
                     const matchedItem = cartItems.find(
                       (ci: any) => ci.id === line.variantId || ci.variantId === line.variantId
                     );
@@ -187,11 +190,9 @@ const handleCheckoutRedirect = () => {
                         </div>
                         <div className="flex flex-col justify-center flex-1">
                           
-                          {/* Başlık ve Silme Butonu */}
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex-1 pr-4">
                               <span className="font-serif text-[1.1rem] text-[#000000] leading-tight block">{line.title}</span>
-                              {/* 🌟 EKLENDİ: Ürün bazlı indirim etiketleri */}
                               {line.discountTitles && line.discountTitles.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                                   {line.discountTitles.map((label: string) => (
@@ -210,12 +211,9 @@ const handleCheckoutRedirect = () => {
                             </div>
                             <button 
                               onClick={() => {
-                                // Bu Shopify satırının miktarını cartItems toplamından düş.
-                                // Eğer kalan miktar 0 veya altına inecekse ürünü tamamen kaldır.
                                 if (totalCartQty - line.quantity <= 0) {
                                   removeFromCart(itemId);
                                 } else {
-                                  // line.quantity kadar azalt (delta negatif)
                                   updateQuantity(itemId, -line.quantity);
                                 }
                               }}
@@ -227,8 +225,6 @@ const handleCheckoutRedirect = () => {
                           </div>
 
                           <div className="flex items-end justify-between mt-auto">
-                            
-                            {/* MİKTAR ARTIRMA/AZALTMA BUTONLARI */}
                             <div className="flex items-center gap-3 border border-[#E5E5E5] px-2 py-1 bg-[#FAFAFA] w-fit">
                               <button 
                                 type="button"
@@ -263,7 +259,6 @@ const handleCheckoutRedirect = () => {
                                 {line.discountedPrice === 0 ? 'ÜCRETSİZ' : `₺${(line.discountedPrice * line.quantity).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
                               </span>
                             </div>
-
                           </div>
                         </div>
                       </div>

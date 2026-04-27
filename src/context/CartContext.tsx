@@ -16,33 +16,29 @@ interface CartContextType {
   removeFromCart: (productId: string | number) => void; 
   updateQuantity: (productId: string | number, delta: number) => void;
   clearCart: () => void;
+  replaceCart: (items: CartItem[]) => void;
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
   cartCount: number;
-  totalPrice: number; // EKLENDİ: Urun.tsx'teki hatayı gidermek için type eklendi
+  totalPrice: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  // LocalStorage'daki ürün bazlı yapı korunuyor (Ürün ID'leri ve Miktarları için)
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     const savedCart = typeof window !== 'undefined' ? localStorage.getItem('edition_cart') : null;
     return savedCart ? JSON.parse(savedCart) : [];
   });
   
   const [isCartOpen, setIsCartOpen] = useState(false);
-  
-  // Shopify'dan dönecek olan fiyat, indirim ve satır bazlı gerçek sepet verisi
   const [shopifyCart, setShopifyCart] = useState<ShopifyCartResponse | null>(null);
   const [isLoadingCart, setIsLoadingCart] = useState(false);
 
-  // Local state her değiştiğinde LocalStorage'ı güncelle
   useEffect(() => {
     localStorage.setItem('edition_cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  // Sepet (cartItems) her değiştiğinde, gerçek tutarları ve indirimleri Shopify'dan çek
   useEffect(() => {
     let isMounted = true;
     const fetchShopifyCart = async () => {
@@ -70,7 +66,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       if (isSubscription) {
         return [{ ...product, quantity: 1, isSubscription: true }];
       }
-      
       const existingItem = prevItems.find(item => item.id === product.id);
       if (existingItem) {
         return prevItems.map(item =>
@@ -104,11 +99,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setShopifyCart(null);
   };
 
+  // Tekrar sipariş akışı için — cart drawer açmadan sepeti tamamen değiştirir
+  const replaceCart = (items: CartItem[]) => {
+    setCartItems(items);
+  };
+
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
-  // EKLENDİ: Urun.tsx içerisindeki "totalPrice" gereksinimi için sepet toplam fiyatı hesaplaması
   const totalPrice = cartItems.reduce((total, item) => {
-    // Ürün fiyatı string ("150,00" vb.) veya number gelebilir. Güvenli bir parse işlemi yapıyoruz.
     const priceStr = String(item.price || 0).replace(/[^\d.,]/g, '').replace(',', '.');
     const price = parseFloat(priceStr) || 0;
     return total + (price * item.quantity);
@@ -122,11 +120,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       addToCart, 
       removeFromCart, 
       updateQuantity, 
-      clearCart, 
+      clearCart,
+      replaceCart,
       isCartOpen, 
       setIsCartOpen, 
       cartCount,
-      totalPrice // EKLENDİ: Context üzerinden dışarıya aktarılıyor
+      totalPrice
     }}>
       {children}
     </CartContext.Provider>
