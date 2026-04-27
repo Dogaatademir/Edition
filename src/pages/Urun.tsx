@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { fetchShopifyProductByHandle, type CoffeeProduct, type ProductVariant } from '../lib/shopify';
+import ProductInfoSection from '../components/ProductInfoSection';
 
 // --- ÖZEL İKONLAR (ÖĞÜTME DERECELERİ İÇİN) ---
 const grindOptions = [
@@ -447,6 +448,9 @@ const Urun = () => {
 
             </div>
           </div>
+
+          {/* === YENİ: SEKMELİ ÜRÜN BİLGİSİ BÖLÜMÜ === */}
+          <ProductInfoSection product={product} />
           
           {/* TAM GENİŞLİKTE UZUN AÇIKLAMA BÖLÜMÜ */}
           <div className="mt-16 md:mt-24 border-t border-[#E5E5E5] pt-16 md:pt-24 pb-12 relative overflow-hidden">
@@ -487,7 +491,6 @@ const Urun = () => {
               <span className="font-serif text-[0.95rem] md:text-[1.1rem] text-[#000000] leading-none">{product.name}</span>
               
               <div className="flex items-center gap-2">
-                {/* Gramaj Açılır Menüsü */}
                 {product.variants && product.variants.length > 0 && product.variants[0].weight !== "Default Title" && (
                   <div className="relative">
                     <select 
@@ -506,7 +509,6 @@ const Urun = () => {
                   </div>
                 )}
 
-                {/* Öğütme Açılır Menüsü */}
                 {isFiltre && (
                   <div className="relative">
                     <select 
@@ -522,7 +524,6 @@ const Urun = () => {
                   </div>
                 )}
 
-                {/* Eğer hiçbir seçici yoksa sadece kavrum tipini göster */}
                 {(!product.variants || product.variants.length === 0 || product.variants[0].weight === "Default Title") && !isFiltre && (
                   <span className="font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.1em] text-[#888888] uppercase">
                     {product.roast || 'Özel Kavrum'}

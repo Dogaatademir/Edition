@@ -37,7 +37,7 @@ const AnnouncementBar = () => {
   }, [messages.length]);
 
   return (
-    <div className="bg-[#000000] text-[#FFFFFF] h-10 overflow-hidden px-4">
+    <div className="bg-[#1A0F08] text-[#FFFFFF] h-10 overflow-hidden px-4">
       <div 
         className="transition-transform duration-700 ease-in-out flex flex-col w-full h-full"
         style={{ transform: `translateY(-${currentIndex * 100}%)` }}
@@ -96,7 +96,7 @@ const CookieBanner = () => {
         <div className="flex gap-3">
           <button 
             onClick={() => handleAction('accepted')}
-            className="flex-1 bg-[#000000] text-[#FFFFFF] px-4 py-3 font-mono text-[0.6rem] uppercase tracking-[0.15em] border border-[#000000] hover:bg-[#555555] hover:border-[#555555] transition-colors"
+            className="flex-1 bg-[#C17A3A] text-[#FFFFFF] px-4 py-3 font-mono text-[0.6rem] uppercase tracking-[0.15em] border border-[#C17A3A] hover:bg-[#A0612A] hover:border-[#A0612A] transition-colors"
           >
             Anladım
           </button>
@@ -175,7 +175,7 @@ const CartDrawer = () => {
                   </div>
                   <div className="h-1.5 w-full bg-[#FAFAFA] border border-[#E5E5E5] overflow-hidden">
                     <div 
-                      className="h-full bg-[#000000] transition-all duration-700 ease-out"
+                      className="h-full bg-[#C17A3A] transition-all duration-700 ease-out"
                       style={{ width: `${progressPercentage}%` }}
                     />
                   </div>
@@ -298,7 +298,7 @@ const CartDrawer = () => {
                 <p className="font-sans font-light text-[0.85rem] text-[#555555] mb-8 max-w-[200px]">Dünyanın seçkin bölgelerinden gelen taze kavrulmuş kahvelerimizi keşfetmeye başlayın.</p>
                 <button 
                   onClick={() => { setIsCartOpen(false); navigate('/kahveler'); }}
-                  className="font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#FFFFFF] bg-[#000000] border border-[#000000] px-8 py-3 transition-colors hover:bg-[#555555] hover:border-[#555555]"
+                  className="font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#FFFFFF] bg-[#C17A3A] border border-[#C17A3A] px-8 py-3 transition-colors hover:bg-[#A0612A] hover:border-[#A0612A]"
                 >
                   Seçkiyi Keşfet
                 </button>
@@ -348,8 +348,8 @@ const CartDrawer = () => {
                 disabled={isLoadingCart || (!shopifyCart && !isLoadingCart)}
                 className={`w-full py-4 font-mono text-[0.65rem] tracking-[0.15em] uppercase transition-colors flex items-center justify-center gap-3 ${
                   checkoutError || isLoadingCart || (!shopifyCart && !isLoadingCart)
-                    ? 'bg-[#E5E5E5] text-[#888888] cursor-not-allowed border border-[#E5E5E5]' 
-                    : 'bg-[#000000] text-[#FFFFFF] border border-[#000000] hover:bg-[#555555] hover:border-[#555555]'
+                    ? 'bg-[#E5E5E5] text-[#888888] cursor-not-allowed border border-[#E5E5E5]'
+                    : 'bg-[#C17A3A] text-[#FFFFFF] border border-[#C17A3A] hover:bg-[#A0612A] hover:border-[#A0612A]'
                 }`}
               >
                 {checkoutError ? 'Sepeti Düzenle' : isLoadingCart ? '...' : 'Ödemeye Geç'}
@@ -366,7 +366,7 @@ const CartDrawer = () => {
 // --- FOOTER BİLEŞENİ ---
 const Footer = () => {
   return (
-    <footer className="bg-[#000000] text-[#FFFFFF] border-t border-[#000000] pt-24 pb-12 mt-auto">
+    <footer className="bg-[#1A0F08] text-[#FFFFFF] border-t border-[#1A0F08] pt-24 pb-12 mt-auto">
       <div className="max-w-[1440px] mx-auto px-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-12 md:gap-20 mb-20">
           
@@ -454,7 +454,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
     setIsMobileMenuOpen(false);
   }, [location.pathname, location.search]);
 
-  const navLinkClass = "font-mono text-[0.6rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-[1px] after:bottom-[-4px] after:left-0 after:bg-[#000000] after:origin-bottom-right hover:after:scale-x-100 hover:after:origin-bottom-left after:transition-transform after:duration-300";
+  const navLinkClass = "font-mono text-[0.6rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#C17A3A] transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-[1px] after:bottom-[-4px] after:left-0 after:bg-[#C17A3A] after:origin-bottom-right hover:after:scale-x-100 hover:after:origin-bottom-left after:transition-transform after:duration-300";
   const dropdownLinkClass = "font-mono text-[0.6rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] transition-colors block py-1.5";
 
   return (
@@ -516,10 +516,10 @@ const Layout = ({ children }: { children: ReactNode }) => {
             </button>
             
             {/* Masaüstü: Giriş durumuna göre yönlendirme */}
-            <button 
-              onClick={() => navigate(isAuthenticated ? '/hesap' : '/hesap/giris')} 
-              className="transition-colors hidden sm:block text-[#555555] hover:text-[#000000]"
-            >
+         <button 
+  onClick={() => isAuthenticated ? navigate('/hesap') : window.location.href = 'https://account.editioncoffee.com.tr/account'} 
+  className="transition-colors hidden sm:block text-[#555555] hover:text-[#000000]"
+>
               <User className="h-4 w-4" />
             </button>
 
@@ -577,12 +577,12 @@ const Layout = ({ children }: { children: ReactNode }) => {
           
           <div className="p-6 border-t border-[#E5E5E5] bg-[#FAFAFA] flex flex-col gap-4">
             {/* Mobil Menü: Giriş durumuna göre metin ve yönlendirme değişimi */}
-            <Link 
-              to={isAuthenticated ? '/hesap' : '/hesap/giris'} 
-              className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000]"
-            >
-              <User className="h-4 w-4" /> {isAuthenticated ? 'Hesabım' : 'Giriş Yap / Üye Ol'}
-            </Link>
+           <button
+  onClick={() => isAuthenticated ? navigate('/hesap') : window.location.href = 'https://account.editioncoffee.com.tr/account'}
+  className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] text-left"
+>
+  <User className="h-4 w-4" /> {isAuthenticated ? 'Hesabım' : 'Giriş Yap / Üye Ol'}
+</button>
             <button className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] text-left">
                <Search className="h-4 w-4" /> Arama Yap
             </button>

@@ -1,24 +1,21 @@
-edition
-├── README.md
+dogaatademir@Atas-MacBook-Pro edition % tree -I "node_modules|.git|dist"                             
+.
 ├── eslint.config.js
 ├── index.html
 ├── package-lock.json
 ├── package.json
 ├── postcss.config.js
 ├── public
+│   ├── _redirects
+│   ├── cup1.png
 │   ├── editionbeyaz.png
 │   ├── editionsiyah.png
-│   ├── gaia.png
-│   ├── gaiaandco.png
-│   ├── gaiaecoactivecarbon.png
-│   ├── gaiaecoactivecarbon10l.png
-│   ├── gaiaecopure.png
-│   ├── gaiapremiumactivecarbon.png
-│   ├── gaiapremiumactivecarbon10l.png
-│   ├── gaiapremiumpure.png
-│   ├── gaiapremiumpure10l.png
-│   ├── gaiecopure10l.png
-│   └── littie.png
+│   ├── espresso.png
+│   ├── filtre.png
+│   ├── paket.png
+│   └── turkkahvesi.png
+├── README.md
+├── server
 ├── src
 │   ├── app
 │   │   ├── App.tsx
@@ -28,6 +25,7 @@ edition
 │   ├── components
 │   │   ├── CookieBanner.tsx
 │   │   ├── Layout.tsx
+│   │   ├── ProductInfoSection.tsx
 │   │   └── ScrollToTop.tsx
 │   ├── context
 │   │   ├── AuthContext.tsx
@@ -35,16 +33,22 @@ edition
 │   ├── data
 │   │   └── products.ts
 │   ├── lib
-│   │   └── supabaseClient.ts
+│   │   └── shopify.ts
 │   ├── pages
-│   │   ├── Abonelik.tsx
 │   │   ├── Anasayfa.tsx
+│   │   ├── AramaSonuclari.tsx
+│   │   ├── Giris.tsx
 │   │   ├── Hakkimizda.tsx
+│   │   ├── Hesap.tsx
 │   │   ├── Iletisim.tsx
 │   │   ├── Kahveler.tsx
 │   │   ├── Kargo.tsx
+│   │   ├── Kayit.tsx
 │   │   ├── Kvkk.tsx
 │   │   ├── NotFound.tsx
+│   │   ├── Odeme.tsx
+│   │   ├── SifremiUnuttum.tsx
+│   │   ├── SifreYenile.tsx
 │   │   ├── Sss.tsx
 │   │   ├── Toptan.tsx
 │   │   └── Urun.tsx
@@ -65,5 +69,6 @@ edition
 ├── tsconfig.json
 ├── tsconfig.node.json
 ├── vite.config.ts
-├── yap.txt
-└── yapi.txt
+└── yap.txt
+
+16 directories, 55 files

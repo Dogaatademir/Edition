@@ -88,6 +88,7 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
               title
               price { amount }
               compareAtPrice { amount }
+              image { url }
             }
           }
           metafields(identifiers: [
@@ -127,7 +128,7 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
           description: p.description || "",
           price: `${parseFloat(v.price.amount).toFixed(2)} ₺`,
           oldPrice: v.compareAtPrice ? `${parseFloat(v.compareAtPrice.amount).toFixed(2)} ₺` : undefined,
-          image: p.featuredImage?.url,
+          image: v.image?.url ?? p.featuredImage?.url,
           badge: metaMap["badge"] ?? undefined,
           origin: metaMap["origin"] ?? undefined,
           process: metaMap["process"] ?? undefined,
