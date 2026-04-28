@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext'; // Auth context eklendi
+import { useAnalytics, trackEvent } from '../hooks/useAnalytics';
 
 // --- DUYURU ŞERİDİ (ANNOUNCEMENT BAR) BİLEŞENİ ---
 const AnnouncementBar = () => {
@@ -134,6 +135,7 @@ const CartDrawer = () => {
       return;
     }
 
+    trackEvent('checkout_start', { itemCount: cartItems.length, total: finalPrice });
     setIsCartOpen(false);
     const targetPath = hasSubscription ? '/abonelik-odeme' : '/odeme';
     navigate(targetPath);
@@ -446,6 +448,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated } = useAuth(); // Auth durumu çekildi
   const navigate = useNavigate();
   const location = useLocation();
+  useAnalytics(location.pathname); // ← gerçek zamanlı analitik takibi
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileKahvelerOpen, setIsMobileKahvelerOpen] = useState(false);

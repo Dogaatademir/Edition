@@ -20,7 +20,7 @@ const Kahveler = lazy(() => import('../pages/Kahveler'));
 const Toptan = lazy(() => import('../pages/Toptan'));
 const Iletisim = lazy(() => import('../pages/Iletisim'));
 const Odeme = lazy(() => import('../pages/Odeme'));
-const SifreYenile = lazy(() => import('../pages/SifreYenile'));
+const Analitik = lazy(() => import('../components/AnalyticsDashboard'));
 
 
 // Yeni Eklenen Müşteri / Hesap Sayfaları
@@ -100,7 +100,7 @@ function App() {
                 <Route path="/hesap/kayit" element={<Kayit />} />
                 <Route path="/hesap" element={<Hesap />} />
                 <Route path="/hesap/sifremi-unuttum" element={<SifremiUnuttum />} />
-                <Route path="/account/reset/:id/:token" element={<SifreYenile />} />
+               
                 {/* DİĞER SAYFALAR */}
                 <Route path="/sss" element={<Sss />} />
                 <Route path="/kargo" element={<Kargo />} />
@@ -108,6 +108,8 @@ function App() {
                 <Route path="/toptan" element={<Toptan />} />
                 <Route path="/iletisim" element={<Iletisim />} />
                 <Route path="/arama" element={<AramaSonuclari />} />
+                <Route path="/analiz" element={<Analitik />} />
+                
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Layout>

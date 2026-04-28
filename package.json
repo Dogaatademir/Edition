@@ -10,12 +10,13 @@
     "preview": "vite preview"
   },
   "overrides": {
-  "vite": "^7.3.2"
-},
+    "vite": "^7.3.2"
+  },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
     "@shopify/hydrogen-react": "^2026.4.0",
+    "@supabase/supabase-js": "^2.105.0",
     "@types/matter-js": "^0.20.2",
     "@types/three": "^0.184.0",
     "lucide-react": "^0.563.0",
