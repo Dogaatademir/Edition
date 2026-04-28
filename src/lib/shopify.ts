@@ -691,13 +691,7 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
           variables: {
             cartId: cartData.cart.id,
             buyerIdentity: {
-              deliveryAddressPreferences: [{
-                deliveryAddress: {
-                  country: "TR",
-                  city: "Istanbul",
-                  zip: "34000",
-                }
-              }]
+              countryCode: "TR"
             }
           }
         }),
@@ -733,6 +727,7 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
     throw err;
   }
 }
+
 export async function resetCustomerPassword(id: string, input: { password: string; resetToken: string }) {
   if (!domain || !token) throw new Error("Shopify ENV eksik");
 

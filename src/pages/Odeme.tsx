@@ -415,7 +415,7 @@ export default function Odeme() {
                         </span>
                       ) : (
                         <span className="font-mono text-[0.70rem] text-[#888888] tracking-wide">
-                          ADIMINDA HESAPLANACAK
+                           ÖDEME ADIMINDA HESAPLANACAK
                         </span>
                       )}
                     </div>
