@@ -1,9 +1,11 @@
 // src/pages/Odeme.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { Lock, ArrowLeft, ShieldCheck, CreditCard, Truck, X } from 'lucide-react';
 import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
+import { trackEvent } from '../hooks/useAnalytics'; // Analitik fonksiyonumuz
+import { getSessionId } from '../lib/session';
 
 interface CartContextType {
   cartItems: any[];
@@ -20,6 +22,7 @@ export default function Odeme() {
   const hasReorderParam = new URLSearchParams(window.location.search).has('reorder');
   const [reorderProcessed, setReorderProcessed] = useState(!hasReorderParam);
 
+  const hasTrackedViewRef = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingCart, setIsLoadingCart] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +51,14 @@ export default function Odeme() {
     }
   }, []);
 
+  // SAYFA YÜKLENDİĞİNDE YAPILACAKLAR
   useEffect(() => {
+    // useRef guard: React StrictMode'da effect'ler 2x çalışır, bunu önler
+    if (hasTrackedViewRef.current) return;
+    hasTrackedViewRef.current = true;
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    trackEvent('react_odeme_view');
   }, []);
 
   const fetchCartFromShopify = async (codeToApply?: string | null) => {
@@ -100,9 +109,28 @@ export default function Odeme() {
     fetchCartFromShopify(null);
   };
 
-  const handleCheckoutRedirect = () => {
+  const handleCheckoutRedirect = async () => {
     if (shopifyCart?.checkoutUrl) {
       setIsProcessing(true);
+
+      // ── Analitik: Shopify ödeme ekranı açılıyor ──────────────────────────
+      // await ile bekliyoruz — aksi hâlde window.location.href değişimi
+      // fetch'i iptal edip "Load failed" hatasına yol açar.
+      await trackEvent('checkout_start', {
+        total: shopifyCart.total,
+        itemCount: cartItems.length,
+        discountCode: appliedCode ?? null,
+      });
+
+      // Terk edilmiş sepet tespiti için timestamp kaydet.
+      try {
+        localStorage.setItem('pendingCheckout', JSON.stringify({
+          ts: Date.now(),
+          sessionId: getSessionId(),
+          total: shopifyCart.total,
+        }));
+      } catch { /* localStorage erişim hatası — devam et */ }
+      // ─────────────────────────────────────────────────────────────────────
 
       let finalCheckoutUrl = shopifyCart.checkoutUrl;
 

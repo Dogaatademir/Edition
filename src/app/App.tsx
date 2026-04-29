@@ -1,12 +1,13 @@
 // src/app/App.tsx
-import { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Suspense, lazy, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ShopifyProvider } from '@shopify/hydrogen-react';
 import { CartProvider } from '../context/CartContext';
 import { AuthProvider } from '../context/AuthContext';
 
 import Layout from '../components/Layout';
 import ScrollToTop from '../components/ScrollToTop';
+import { initPixel, pageView } from '../lib/metaPixel';
 
 // Mevcut Sayfalar
 const Anasayfa = lazy(() => import('../pages/Anasayfa'));
@@ -22,7 +23,6 @@ const Iletisim = lazy(() => import('../pages/Iletisim'));
 const Odeme = lazy(() => import('../pages/Odeme'));
 const Analitik = lazy(() => import('../components/AnalyticsDashboard'));
 
-
 // Yeni Eklenen Müşteri / Hesap Sayfaları
 const Giris = lazy(() => import('../pages/Giris'));
 const Kayit = lazy(() => import('../pages/Kayit'));
@@ -32,6 +32,22 @@ const AramaSonuclari = lazy(() => import('../pages/AramaSonuclari'));
 
 const storeDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
 const storefrontToken = import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN;
+
+// ─── META PIXEL ──────────────────────────────────────────────────────────────
+
+function MetaPixel() {
+  const location = useLocation();
+
+  useEffect(() => {
+    initPixel();
+  }, []);
+
+  useEffect(() => {
+    pageView();
+  }, [location]);
+
+  return null;
+}
 
 // ─── TEMAYA UYGUN YATAY KAYAN ÇİZGİLİ YÜKLEME EKRANI ───────────────────────
 
@@ -81,41 +97,42 @@ function App() {
       <CartProvider>
         <BrowserRouter>
           <AuthProvider>
-          <ScrollToTop />
-          
-          <Suspense fallback={<PageLoader />}>
-            <Layout>
-              <Routes>
-                {/* ANA SAYFALAR */}
-                <Route path="/" element={<Anasayfa />} />
-                <Route path="/kahveler" element={<Kahveler />} />
-                <Route path="/hakkimizda" element={<Hakkimizda />} />
-                <Route path="/odeme" element={<Odeme />} />
+            <ScrollToTop />
+            <MetaPixel />
 
-                {/* ÜRÜN DETAY */}
-                <Route path="/urun/:id" element={<Urun />} />
+            <Suspense fallback={<PageLoader />}>
+              <Layout>
+                <Routes>
+                  {/* ANA SAYFALAR */}
+                  <Route path="/" element={<Anasayfa />} />
+                  <Route path="/kahveler" element={<Kahveler />} />
+                  <Route path="/hakkimizda" element={<Hakkimizda />} />
+                  <Route path="/odeme" element={<Odeme />} />
 
-                {/* MÜŞTERİ HESABI SAYFALARI */}
-                <Route path="/hesap/giris" element={<Giris />} />
-                <Route path="/hesap/kayit" element={<Kayit />} />
-                <Route path="/hesap" element={<Hesap />} />
-                <Route path="/hesap/sifremi-unuttum" element={<SifremiUnuttum />} />
-               
-                {/* DİĞER SAYFALAR */}
-                <Route path="/sss" element={<Sss />} />
-                <Route path="/kargo" element={<Kargo />} />
-                <Route path="/kvkk" element={<Kvkk />} />
-                <Route path="/toptan" element={<Toptan />} />
-                <Route path="/iletisim" element={<Iletisim />} />
-                <Route path="/arama" element={<AramaSonuclari />} />
-                <Route path="/analiz" element={<Analitik />} />
-                
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Layout>
-          </Suspense>
-          
-        </AuthProvider>
+                  {/* ÜRÜN DETAY */}
+                  <Route path="/urun/:id" element={<Urun />} />
+
+                  {/* MÜŞTERİ HESABI SAYFALARI */}
+                  <Route path="/hesap/giris" element={<Giris />} />
+                  <Route path="/hesap/kayit" element={<Kayit />} />
+                  <Route path="/hesap" element={<Hesap />} />
+                  <Route path="/hesap/sifremi-unuttum" element={<SifremiUnuttum />} />
+
+                  {/* DİĞER SAYFALAR */}
+                  <Route path="/sss" element={<Sss />} />
+                  <Route path="/kargo" element={<Kargo />} />
+                  <Route path="/kvkk" element={<Kvkk />} />
+                  <Route path="/toptan" element={<Toptan />} />
+                  <Route path="/iletisim" element={<Iletisim />} />
+                  <Route path="/arama" element={<AramaSonuclari />} />
+                  <Route path="/analiz" element={<Analitik />} />
+
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Layout>
+            </Suspense>
+
+          </AuthProvider>
         </BrowserRouter>
       </CartProvider>
     </ShopifyProvider>

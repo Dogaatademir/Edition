@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext'; // Auth context eklendi
-import { useAnalytics, trackEvent } from '../hooks/useAnalytics';
+import { useAnalytics } from '../hooks/useAnalytics';
 
 // --- DUYURU ŞERİDİ (ANNOUNCEMENT BAR) BİLEŞENİ ---
 const AnnouncementBar = () => {
@@ -135,7 +135,6 @@ const CartDrawer = () => {
       return;
     }
 
-    trackEvent('checkout_start', { itemCount: cartItems.length, total: finalPrice });
     setIsCartOpen(false);
     const targetPath = hasSubscription ? '/abonelik-odeme' : '/odeme';
     navigate(targetPath);
@@ -456,6 +455,8 @@ const Layout = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname, location.search]);
+
+
 
   const navLinkClass = "font-mono text-[0.6rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#C17A3A] transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-[1px] after:bottom-[-4px] after:left-0 after:bg-[#C17A3A] after:origin-bottom-right hover:after:scale-x-100 hover:after:origin-bottom-left after:transition-transform after:duration-300";
   const dropdownLinkClass = "font-mono text-[0.6rem] tracking-[0.15em] uppercase text-[#555555] hover:text-[#000000] transition-colors block py-1.5";

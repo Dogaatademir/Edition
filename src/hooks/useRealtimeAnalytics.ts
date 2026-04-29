@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 export interface LiveEvent {
@@ -13,6 +13,7 @@ export interface RealtimeAnalytics {
   topPages: { page: string; count: number }[];
   liveEvents: LiveEvent[];
   isConnected: boolean;
+  isReconnecting: boolean;
 }
 
 export function useRealtimeAnalytics(): RealtimeAnalytics {
@@ -20,6 +21,8 @@ export function useRealtimeAnalytics(): RealtimeAnalytics {
   const [topPages, setTopPages] = useState<{ page: string; count: number }[]>([]);
   const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const hasConnectedRef = useRef(false);
 
   const fetchActive = useCallback(async () => {
     // cleanup_stale_sessions RPC — hata verse bile devam et
@@ -27,10 +30,13 @@ export function useRealtimeAnalytics(): RealtimeAnalytics {
       await supabase.rpc('cleanup_stale_sessions');
     } catch {
       // RPC bulunamadıysa manuel sil
-      await supabase
+      const { error: deleteError } = await supabase
         .from('active_sessions')
         .delete()
         .lt('last_seen', new Date(Date.now() - 45_000).toISOString());
+      if (deleteError) {
+        console.warn('[Analytics] cleanup fallback error:', deleteError.message);
+      }
     }
 
     const { data, error } = await supabase
@@ -88,7 +94,10 @@ export function useRealtimeAnalytics(): RealtimeAnalytics {
       )
       .subscribe((status) => {
         console.log('[Analytics] session channel:', status);
-        setIsConnected(status === 'SUBSCRIBED');
+        const connected = status === 'SUBSCRIBED';
+        if (connected) hasConnectedRef.current = true;
+        setIsConnected(connected);
+        setIsReconnecting(!connected && hasConnectedRef.current);
       });
 
     // ── analytics_events realtime ─────────────────────────────────────────
@@ -117,5 +126,5 @@ export function useRealtimeAnalytics(): RealtimeAnalytics {
     };
   }, [fetchActive, fetchRecentEvents]);
 
-  return { activeVisitors, topPages, liveEvents, isConnected };
+  return { activeVisitors, topPages, liveEvents, isConnected, isReconnecting };
 }

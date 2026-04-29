@@ -1,5 +1,7 @@
 // src/lib/shopify.ts
 
+import { getSessionId } from './session';
+
 export interface ProductVariant {
   id: string;
   weight: string;
@@ -530,6 +532,10 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
         cart {
           id
           checkoutUrl
+          attributes {
+            key
+            value
+          }
           cost {
             subtotalAmount { amount currencyCode }
             totalAmount { amount currencyCode }
@@ -598,7 +604,12 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
   `;
 
   try {
-    const inputPayload: any = { lines: lineItems };
+    const inputPayload: any = { 
+      lines: lineItems,
+      attributes: [
+        { key: "react_session_id", value: getSessionId() }
+      ]
+    };
     if (discountCode) {
       inputPayload.discountCodes = [discountCode];
     }

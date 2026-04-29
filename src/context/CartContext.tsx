@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { CoffeeProduct } from '../data/products'; 
 import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
+import { trackEvent } from '../hooks/useAnalytics';
 
 export interface CartItem extends CoffeeProduct { 
   quantity: number;
@@ -75,10 +76,25 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       return [...prevItems, { ...product, quantity, isSubscription: false }];
     });
     setIsCartOpen(true);
+
+    trackEvent('cart_add', {
+      productId: product.id,
+      productTitle: product.name ?? null,
+      quantity,
+      isSubscription,
+    });
   };
 
   const removeFromCart = (productId: string | number) => {
+    const item = cartItems.find(i => i.id === productId);
     setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
+
+    if (item) {
+      trackEvent('cart_remove', {
+        productId,
+        productTitle: item.name ?? null,
+      });
+    }
   };
 
   const updateQuantity = (productId: string | number, delta: number) => {
