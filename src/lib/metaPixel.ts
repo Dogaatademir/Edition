@@ -41,9 +41,9 @@ export function metaAddToCart(params: {
 
 export function metaViewCart(params?: {
   num_items?: number;
-  value?: number;
+  total?: number;
 }) {
-  ReactPixel.track('InitiateCheckout', {
+  ReactPixel.track('ViewCart', {
     currency: 'TRY',
     ...params,
   });

@@ -15,7 +15,6 @@ export function useMetaProductView(product: {
     });
   }, [product?.id]);
 }
-
 export function useMetaViewCart(cart: {
   itemCount: number;
   total: number;
@@ -24,7 +23,7 @@ export function useMetaViewCart(cart: {
     if (!cart) return;
     metaViewCart({
       num_items: cart.itemCount,
-      value:     cart.total,
+      total:     cart.total,
     });
   }, []);
 }
