@@ -14,8 +14,9 @@ import {
 import { useCart } from '../context/CartContext';
 import { fetchShopifyProductByHandle, type CoffeeProduct, type ProductVariant } from '../lib/shopify';
 import ProductInfoSection from '../components/ProductInfoSection';
+import { useMetaProductView } from '../hooks/useMetaAnalytics';
 
-// --- ÖZEL İKONLAR (ÖĞÜTME DERECELERİ İÇİN) ---
+// --- ÖZEL İKONLAR ---
 const grindOptions = [
   {
     id: 'Çekirdek',
@@ -106,14 +107,12 @@ const Urun = () => {
   const [product, setProduct] = useState<CoffeeProduct | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Stateler
   const [quantity, setQuantity] = useState(1);
   const [openSection, setOpenSection] = useState<string | null>('desc');
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [grind, setGrind] = useState<string>('Çekirdek');
   const [viewers, setViewers] = useState(Math.floor(Math.random() * 11) + 10);
   
-  // Floating Bar Stateleri
   const [showStickyBar, setShowStickyBar] = useState(false);
   const addToCartRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +133,21 @@ const Urun = () => {
       .finally(() => setLoading(false));
   }, [handle]);
 
+  // Meta Pixel — ViewContent (ürün yüklenince tetiklenir)
+  useMetaProductView(
+    product
+      ? {
+          id:    product.id,
+          title: product.name ?? '',
+          price: parseFloat(
+            String(selectedVariant?.price ?? product.price ?? 0)
+              .replace(/[^\d.,]/g, '')
+              .replace(',', '.')
+          ) || 0,
+        }
+      : null
+  );
+
   // İzleyici Simülasyonu
   useEffect(() => {
     const interval = setInterval(() => {
@@ -148,7 +162,7 @@ const Urun = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Sticky Bar Scroll Dinleyicisi (Sadece Buton Altına İnildiğinde)
+  // Sticky Bar
   useEffect(() => {
     const handleScroll = () => {
       if (addToCartRef.current) {
@@ -166,10 +180,10 @@ const Urun = () => {
   if (loading) {
     return (
       <main className="bg-[#FFFFFF] min-h-screen pt-28 pb-20 flex items-center justify-center">
-         <div className="animate-pulse flex flex-col items-center">
-            <Coffee className="w-8 h-8 text-[#E5E5E5] mb-4 animate-spin-slow" />
-            <span className="font-mono text-[0.65rem] tracking-[0.2em] text-[#888888] uppercase">Seçki Hazırlanıyor...</span>
-         </div>
+        <div className="animate-pulse flex flex-col items-center">
+          <Coffee className="w-8 h-8 text-[#E5E5E5] mb-4 animate-spin-slow" />
+          <span className="font-mono text-[0.65rem] tracking-[0.2em] text-[#888888] uppercase">Seçki Hazırlanıyor...</span>
+        </div>
       </main>
     );
   }
@@ -228,7 +242,7 @@ const Urun = () => {
       <main className="bg-[#FFFFFF] min-h-screen pt-28 pb-32 font-sans selection:bg-[#000000] selection:text-[#FFFFFF]">
         <div className="mx-auto max-w-[1440px] px-6 md:px-10">
           
-          {/* Breadcrumb Navigation */}
+          {/* Breadcrumb */}
           <div className="flex items-center gap-3 font-mono text-[0.55rem] tracking-[0.2em] uppercase text-[#888888] mb-8 pb-4 border-b border-[#E5E5E5]">
             <Link to="/kahveler" className="hover:text-[#000000] transition-colors flex items-center gap-1.5">
               <ArrowLeft className="w-3 h-3" /> Tüm Seçki
@@ -239,12 +253,9 @@ const Urun = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 border border-[#E5E5E5] bg-[#FAFAFA]">
             
-            {/* SOL: GÖRSEL ALANI (KAPSAYICI) */}
+            {/* SOL: GÖRSEL */}
             <div className="w-full border-b lg:border-b-0 lg:border-r border-[#E5E5E5] bg-[#FFFFFF]">
-              
-              {/* YAPIŞKAN (STICKY) GÖRSEL */}
               <div className="relative w-full aspect-square lg:aspect-auto lg:h-[calc(100vh-130px)] lg:sticky lg:top-[130px] flex items-center justify-center overflow-hidden p-12 lg:p-20 group">
-
                 {product.image ? (
                   <img 
                     src={product.image} 
@@ -261,26 +272,25 @@ const Urun = () => {
                 )}
                 
                 <div className="absolute top-6 left-6 flex flex-col gap-2 z-20">
-                   <span className="font-mono text-[0.6rem] tracking-[0.2em] text-[#888888] uppercase">
-                     {product.code || 'NO-CODE'}
-                   </span>
-                   {product.badge && (
-                     <span className="font-mono text-[0.55rem] font-semibold tracking-[0.15em] uppercase text-[#FFFFFF] bg-[#000000] px-3 py-1 self-start">
-                       {product.badge}
-                     </span>
-                   )}
+                  <span className="font-mono text-[0.6rem] tracking-[0.2em] text-[#888888] uppercase">
+                    {product.code || 'NO-CODE'}
+                  </span>
+                  {product.badge && (
+                    <span className="font-mono text-[0.55rem] font-semibold tracking-[0.15em] uppercase text-[#FFFFFF] bg-[#000000] px-3 py-1 self-start">
+                      {product.badge}
+                    </span>
+                  )}
                 </div>
 
                 <div className="absolute bottom-6 right-6 z-20">
-                   <span className="font-mono text-[0.55rem] tracking-[0.2em] text-[#555555] uppercase border border-[#E5E5E5] px-3 py-1 bg-[#FFFFFF]">
-                     {product.roast || 'Özel Kavrum'}
-                   </span>
+                  <span className="font-mono text-[0.55rem] tracking-[0.2em] text-[#555555] uppercase border border-[#E5E5E5] px-3 py-1 bg-[#FFFFFF]">
+                    {product.roast || 'Özel Kavrum'}
+                  </span>
                 </div>
               </div>
-              
             </div>
 
-            {/* SAĞ: BİLGİ ALANI */}
+            {/* SAĞ: BİLGİ */}
             <div className="flex flex-col p-8 lg:p-14 bg-[#FFFFFF]">
               
               <div className="mb-6">
@@ -304,7 +314,7 @@ const Urun = () => {
                 </div>
               </div>
 
-              {/* SEÇENEKLER ALANI (GRAMAJ VE ÖĞÜTME) */}
+              {/* SEÇENEKLER */}
               <div className="mb-8">
                 {product.variants && product.variants.length > 0 && product.variants[0].weight !== "Default Title" && (
                   <div className="mb-6">
@@ -395,7 +405,7 @@ const Urun = () => {
                 </div>
               </div>
 
-              {/* Dinamik Accordion Bölümü */}
+              {/* Accordion */}
               <div className="mb-10 border-t border-[#E5E5E5]">
                 <AccordionItem 
                   title="Profil Özellikleri" 
@@ -449,10 +459,10 @@ const Urun = () => {
             </div>
           </div>
 
-          {/* === YENİ: SEKMELİ ÜRÜN BİLGİSİ BÖLÜMÜ === */}
+          {/* Sekmeli Ürün Bilgisi */}
           <ProductInfoSection product={product} />
           
-          {/* TAM GENİŞLİKTE UZUN AÇIKLAMA BÖLÜMÜ */}
+          {/* Uzun Açıklama */}
           <div className="mt-16 md:mt-24 border-t border-[#E5E5E5] pt-16 md:pt-24 pb-12 relative overflow-hidden">
             <div className="max-w-[900px] mx-auto relative z-10 flex flex-col items-center">
               <span className="font-mono text-[0.6rem] tracking-[0.3em] uppercase text-[#888888] mb-4 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#888888] after:content-[''] after:block after:w-5 after:h-[1px] after:bg-[#888888]">
@@ -470,7 +480,7 @@ const Urun = () => {
         </div>
       </main>
 
-      {/* YAPIŞKAN (STICKY) SEPETE EKLE BARI VE SEÇİCİLER */}
+      {/* STICKY SEPETE EKLE BARI */}
       <div 
         className={`fixed bottom-0 left-0 right-0 z-50 bg-[#FFFFFF] border-t border-[#E5E5E5] p-3 md:p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] transform transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
       >

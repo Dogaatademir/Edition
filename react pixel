@@ -1,0 +1,63 @@
+// ============================================================
+// Shopify Admin → Settings → Customer events → Custom pixel
+// ============================================================
+const SUPABASE_URL = 'https://rxmdvnboazszmhjzjmxo.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4bWR2bmJvYXpzem1oanpqbXhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjQ5OTksImV4cCI6MjA5Mjk0MDk5OX0.D05kEuPMEtxLjaJrC3WkSO1v3ktIzOZSc4xOO52LV1s';
+
+function getReactSessionId(event) {
+  var attributes = (event.data && event.data.checkout && event.data.checkout.attributes) || [];
+  var sessionAttr = attributes.find(function(attr) { return attr.key === 'react_session_id'; });
+  if (sessionAttr) {
+    return sessionAttr.value;
+  }
+  return 'pixel_fallback_' + Math.random().toString(36).slice(2);
+}
+
+function send(sessionId, type, payload) {
+  fetch(SUPABASE_URL + '/rest/v1/analytics_events', {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+      'Authorization': 'Bearer ' + ANON_KEY,
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify({
+      session_id: sessionId,
+      type: type,
+      payload: payload,
+      ts: new Date().toISOString(),
+    }),
+  });
+}
+
+function deleteAbandonedCart(sessionId) {
+  fetch(
+    SUPABASE_URL + '/rest/v1/analytics_events?session_id=eq.' + sessionId + '&type=eq.cart_abandoned',
+    {
+      method: 'DELETE',
+      keepalive: true,
+      headers: {
+        'apikey': ANON_KEY,
+        'Authorization': 'Bearer ' + ANON_KEY,
+      },
+    }
+  );
+}
+
+// Satın Alım Tamamlandı
+analytics.subscribe('checkout_completed', function(event) {
+  var sessionId = getReactSessionId(event);
+  var checkout = event.data && event.data.checkout;
+
+  // Ödeme tamamlandı → terk edilen sepet kaydını sil, sipariş yaz
+  deleteAbandonedCart(sessionId);
+
+  send(sessionId, 'purchase', {
+    orderId:   checkout && checkout.order && checkout.order.id,
+    total:     checkout && checkout.totalPrice && checkout.totalPrice.amount,
+    currency:  checkout && checkout.totalPrice && checkout.totalPrice.currencyCode,
+    itemCount: checkout && checkout.lineItems && checkout.lineItems.length,
+  });
+});

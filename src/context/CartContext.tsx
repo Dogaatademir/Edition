@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import type { CoffeeProduct } from '../data/products'; 
 import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
 import { trackEvent } from '../hooks/useAnalytics';
+import { metaAddToCart } from '../lib/metaPixel';
 
 export interface CartItem extends CoffeeProduct { 
   quantity: number;
@@ -77,11 +78,23 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     });
     setIsCartOpen(true);
 
+    // Supabase
     trackEvent('cart_add', {
-      productId: product.id,
+      productId:    product.id,
       productTitle: product.name ?? null,
       quantity,
       isSubscription,
+    });
+
+    // Meta Pixel
+    const numericPrice = parseFloat(
+      String(product.price ?? 0).replace(/[^\d.,]/g, '').replace(',', '.')
+    ) || 0;
+
+    metaAddToCart({
+      content_ids:  [String(product.id)],
+      content_name: product.name ?? '',
+      value:        numericPrice * quantity,
     });
   };
 
@@ -115,7 +128,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setShopifyCart(null);
   };
 
-  // Tekrar sipariş akışı için — cart drawer açmadan sepeti tamamen değiştirir
   const replaceCart = (items: CartItem[]) => {
     setCartItems(items);
   };

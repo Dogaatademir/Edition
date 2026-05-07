@@ -1,0 +1,29 @@
+const PIXEL_ID = '7188769341182127';
+
+analytics.subscribe('checkout_started', function(event) {
+  var checkout = event.data && event.data.checkout;
+  var lineItems = (checkout && checkout.lineItems) ? checkout.lineItems : [];
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', PIXEL_ID);
+  fbq('track', 'InitiateCheckout', {
+    value:        checkout && checkout.totalPrice && checkout.totalPrice.amount,
+    currency:     (checkout && checkout.totalPrice && checkout.totalPrice.currencyCode) || 'TRY',
+    num_items:    lineItems.length,
+    content_type: 'product',
+    content_ids:  lineItems.map(function(i) { return i.variant && i.variant.product && i.variant.product.id; }),
+  });
+});
+
+analytics.subscribe('checkout_completed', function(event) {
+  var checkout = event.data && event.data.checkout;
+  var lineItems = (checkout && checkout.lineItems) ? checkout.lineItems : [];
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', PIXEL_ID);
+  fbq('track', 'Purchase', {
+    value:        checkout && checkout.totalPrice && checkout.totalPrice.amount,
+    currency:     (checkout && checkout.totalPrice && checkout.totalPrice.currencyCode) || 'TRY',
+    num_items:    lineItems.length,
+    content_type: 'product',
+    content_ids:  lineItems.map(function(i) { return i.variant && i.variant.product && i.variant.product.id; }),
+  });
+});

@@ -4,8 +4,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { Lock, ArrowLeft, ShieldCheck, CreditCard, Truck, X } from 'lucide-react';
 import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
-import { trackEvent } from '../hooks/useAnalytics'; // Analitik fonksiyonumuz
+import { trackEvent } from '../hooks/useAnalytics';
 import { getSessionId } from '../lib/session';
+import { useMetaViewCart } from '../hooks/useMetaAnalytics';
 
 interface CartContextType {
   cartItems: any[];
@@ -35,6 +36,22 @@ export default function Odeme() {
   const [orderNote, setOrderNote] = useState('');
   const [shopifyCart, setShopifyCart] = useState<ShopifyCartResponse | null>(null);
 
+  // Meta Pixel için sepet toplamı
+  const cartTotal = cartItems.reduce((total: number, item: any) => {
+    const price = parseFloat(
+      String(item.price ?? 0).replace(/[^\d.,]/g, '').replace(',', '.')
+    ) || 0;
+    return total + price * item.quantity;
+  }, 0);
+  const cartItemCount = cartItems.reduce((s: number, i: any) => s + i.quantity, 0);
+
+  // Meta Pixel — InitiateCheckout
+useMetaViewCart(
+  cartItems.length > 0
+    ? { itemCount: cartItemCount, total: cartTotal }
+    : null
+);
+
   // Tekrar sipariş akışı
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -51,9 +68,8 @@ export default function Odeme() {
     }
   }, []);
 
-  // SAYFA YÜKLENDİĞİNDE YAPILACAKLAR
+  // Supabase — sayfa görüntüleme
   useEffect(() => {
-    // useRef guard: React StrictMode'da effect'ler 2x çalışır, bunu önler
     if (hasTrackedViewRef.current) return;
     hasTrackedViewRef.current = true;
 
@@ -85,7 +101,6 @@ export default function Odeme() {
     }
   };
 
-  // reorderProcessed olmadan eski veriyle Shopify'a gitme
   useEffect(() => {
     if (!reorderProcessed) return;
     if (cartItems.length === 0) {
@@ -113,24 +128,19 @@ export default function Odeme() {
     if (shopifyCart?.checkoutUrl) {
       setIsProcessing(true);
 
-      // ── Analitik: Shopify ödeme ekranı açılıyor ──────────────────────────
-      // await ile bekliyoruz — aksi hâlde window.location.href değişimi
-      // fetch'i iptal edip "Load failed" hatasına yol açar.
       await trackEvent('checkout_start', {
-        total: shopifyCart.total,
-        itemCount: cartItems.length,
+        total:        shopifyCart.total,
+        itemCount:    cartItems.length,
         discountCode: appliedCode ?? null,
       });
 
-      // Terk edilmiş sepet tespiti için timestamp kaydet.
       try {
         localStorage.setItem('pendingCheckout', JSON.stringify({
-          ts: Date.now(),
+          ts:        Date.now(),
           sessionId: getSessionId(),
-          total: shopifyCart.total,
+          total:     shopifyCart.total,
         }));
-      } catch { /* localStorage erişim hatası — devam et */ }
-      // ─────────────────────────────────────────────────────────────────────
+      } catch { /* devam et */ }
 
       let finalCheckoutUrl = shopifyCart.checkoutUrl;
 
@@ -293,7 +303,7 @@ export default function Odeme() {
               </div>
             </div>
 
-            {/* GÜVENLİK VE BİLGİLENDİRME */}
+            {/* GÜVENLİK BİLGİSİ */}
             <div className="bg-[#FAFAFA] border border-[#E5E5E5] p-8 md:p-10">
               <h2 className="font-mono text-[0.7rem] tracking-[0.15em] uppercase text-[#000000] mb-6 flex items-center gap-3">
                 <ShieldCheck className="w-5 h-5 text-[#000000]" />
@@ -443,7 +453,7 @@ export default function Odeme() {
                         </span>
                       ) : (
                         <span className="font-mono text-[0.70rem] text-[#888888] tracking-wide">
-                           ÖDEME ADIMINDA HESAPLANACAK
+                          ÖDEME ADIMINDA HESAPLANACAK
                         </span>
                       )}
                     </div>
