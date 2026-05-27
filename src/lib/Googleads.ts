@@ -7,10 +7,10 @@ declare global {
   }
 }
 
-const ADS_ID               = import.meta.env.VITE_GADS_ID               as string;
-const PURCHASE_LABEL       = import.meta.env.VITE_GADS_PURCHASE_LABEL   as string;
-const BEGIN_CHECKOUT_LABEL = import.meta.env.VITE_GADS_BEGIN_CHECKOUT_LABEL as string | undefined;
-const ADD_TO_CART_LABEL    = import.meta.env.VITE_GADS_ADD_TO_CART_LABEL    as string | undefined;
+const ADS_ID               = 'AW-18193227939';
+const PURCHASE_LABEL       = 'zjYMCM_Lu7QcEKPBmuND';
+const BEGIN_CHECKOUT_LABEL = '62-kCPryu7QcEKPBmuND';
+const ADD_TO_CART_LABEL    = 'WFgyCKz4u7QcEKPBmuND';
 
 function gtag(...args: unknown[]) {
   if (typeof window !== 'undefined' && window.gtag) {
@@ -18,7 +18,7 @@ function gtag(...args: unknown[]) {
   }
 }
 
-// 1. Satın Alma — Shopify custom pixel'dan değil, buradan da çağrılabilir (fallback)
+// 1. Satın Alma
 export function gAdsPurchase(params: {
   orderId: string;
   total: number;
@@ -44,13 +44,11 @@ export function gAdsBeginCheckout(params: {
     items: [{ quantity: params.itemCount }],
   });
 
-  if (BEGIN_CHECKOUT_LABEL) {
-    gtag('event', 'conversion', {
-      send_to:  `${ADS_ID}/${BEGIN_CHECKOUT_LABEL}`,
-      value:    params.total,
-      currency: params.currency ?? 'TRY',
-    });
-  }
+  gtag('event', 'conversion', {
+    send_to:  `${ADS_ID}/${BEGIN_CHECKOUT_LABEL}`,
+    value:    params.total,
+    currency: params.currency ?? 'TRY',
+  });
 }
 
 // 3. Sepete Ekle — CartContext → addToCart
@@ -72,13 +70,11 @@ export function gAdsAddToCart(params: {
     }],
   });
 
-  if (ADD_TO_CART_LABEL) {
-    gtag('event', 'conversion', {
-      send_to:  `${ADS_ID}/${ADD_TO_CART_LABEL}`,
-      value:    params.price * params.quantity,
-      currency: params.currency ?? 'TRY',
-    });
-  }
+  gtag('event', 'conversion', {
+    send_to:  `${ADS_ID}/${ADD_TO_CART_LABEL}`,
+    value:    params.price * params.quantity,
+    currency: params.currency ?? 'TRY',
+  });
 }
 
 // 4. Ürün Görüntüleme — Remarketing
