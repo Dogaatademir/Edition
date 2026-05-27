@@ -4,6 +4,7 @@ import type { CoffeeProduct } from '../data/products';
 import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
 import { trackEvent } from '../hooks/useAnalytics';
 import { metaAddToCart } from '../lib/metaPixel';
+import { gAdsAddToCart } from '../lib/Googleads'; // ← YENİ
 
 export interface CartItem extends CoffeeProduct { 
   quantity: number;
@@ -58,7 +59,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         if (isMounted) setIsLoadingCart(false);
       }
     };
-
     fetchShopifyCart();
     return () => { isMounted = false; };
   }, [cartItems]);
@@ -96,12 +96,19 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       content_name: product.name ?? '',
       value:        numericPrice * quantity,
     });
+
+    // Google Ads — env'deki VITE_GADS_* değerlerini googleAds.ts üzerinden kullanır
+    gAdsAddToCart({
+      productId:   String(product.id),
+      productName: product.name ?? '',
+      price:       numericPrice,
+      quantity,
+    });
   };
 
   const removeFromCart = (productId: string | number) => {
     const item = cartItems.find(i => i.id === productId);
     setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
-
     if (item) {
       trackEvent('cart_remove', {
         productId,

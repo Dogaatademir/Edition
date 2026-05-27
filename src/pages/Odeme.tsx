@@ -7,6 +7,7 @@ import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
 import { trackEvent } from '../hooks/useAnalytics';
 import { getSessionId } from '../lib/session';
 import { useMetaViewCart } from '../hooks/useMetaAnalytics';
+import { gAdsBeginCheckout } from '../lib/Googleads'; // ← YENİ
 
 interface CartContextType {
   cartItems: any[];
@@ -36,7 +37,6 @@ export default function Odeme() {
   const [orderNote, setOrderNote] = useState('');
   const [shopifyCart, setShopifyCart] = useState<ShopifyCartResponse | null>(null);
 
-  // Meta Pixel için sepet toplamı
   const cartTotal = cartItems.reduce((total: number, item: any) => {
     const price = parseFloat(
       String(item.price ?? 0).replace(/[^\d.,]/g, '').replace(',', '.')
@@ -45,14 +45,12 @@ export default function Odeme() {
   }, 0);
   const cartItemCount = cartItems.reduce((s: number, i: any) => s + i.quantity, 0);
 
-  // Meta Pixel — InitiateCheckout
-useMetaViewCart(
-  cartItems.length > 0
-    ? { itemCount: cartItemCount, total: cartTotal }
-    : null
-);
+  useMetaViewCart(
+    cartItems.length > 0
+      ? { itemCount: cartItemCount, total: cartTotal }
+      : null
+  );
 
-  // Tekrar sipariş akışı
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const reorderData = params.get('reorder');
@@ -68,11 +66,9 @@ useMetaViewCart(
     }
   }, []);
 
-  // Supabase — sayfa görüntüleme
   useEffect(() => {
     if (hasTrackedViewRef.current) return;
     hasTrackedViewRef.current = true;
-
     window.scrollTo({ top: 0, behavior: 'smooth' });
     trackEvent('react_odeme_view');
   }, []);
@@ -84,7 +80,6 @@ useMetaViewCart(
     try {
       const result = await createShopifyCart(cartItems, codeToApply);
       setShopifyCart(result);
-
       if (codeToApply && result.discount === 0) {
         setDiscountError("Girdiğiniz indirim kodu geçersiz veya sepetinize uygun değil.");
         setAppliedCode(null);
@@ -132,6 +127,12 @@ useMetaViewCart(
         total:        shopifyCart.total,
         itemCount:    cartItems.length,
         discountCode: appliedCode ?? null,
+      });
+
+      // Google Ads — env'deki VITE_GADS_* değerlerini googleAds.ts üzerinden kullanır
+      gAdsBeginCheckout({
+        total:     shopifyCart.total,
+        itemCount: cartItems.length,
       });
 
       try {
