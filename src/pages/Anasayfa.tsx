@@ -587,46 +587,7 @@ function KahveKategorileriSection() {
   );
 }
 
-const REVIEWS = [
-  {
-    label: "Sayfa 1",
-    title: "Çok taze geldi",
-    text: "Uzun süredir reklamlarını görüyordum, sonunda sipariş verdim. Bir kaç gün önce kavrulmuş kahve gönderdiler. Harika!",
-    cta: "kahve keyfini katla",
-  },
-  {
-    label: "Sayfa 2",
-    title: "KAHVEMİ BULDUM",
-    text: "Kargoya verildiği gün öğütülmüş. Tadını çok sevdim, artık başka kahve denememe gerek kalmadı.",
-    cta: "KENDİ DENEYİMİNİ YAŞA",
-  },
-  {
-    label: "Sayfa 3",
-    title: "İÇİMİ ÇOK rahat",
-    text: "Uzun zamandır kullandığımız kahveyi değiştirip buradan aldık. Eşim ve ben çok sevdik, içimi çok rahat.",
-    cta: "KENDİ DENEYİMİNİ YAŞA",
-  },
-  {
-    label: "Sayfa 4",
-    title: "BA-YIL-DIM",
-    text: "Artık favorim A Roasting Lab. Çok hızlı gönderdiler hem de tadı inanılmaz.",
-    cta: "KENDİ DENEYİMİNİ YAŞA",
-  },
-  {
-    label: "Sayfa 5",
-    title: "HERKESE ÖNERİYORUM",
-    text: "Genelde çoklu setlerinden alıyorum ve sürekli farklı kahveler içmiş oluyorum. Hepsi çok lezzetli. Bütün arkadaşlarıma öneriyorum.",
-    cta: "KENDİ DENEYİMİNİ YAŞA",
-  },
-];
 
-const REVIEW_VIDEOS = [
-  "https://cdn.shopify.com/videos/c/o/v/44fe10bbe5bd407c8d67f6fc89f04862.mp4",
-  "https://cdn.shopify.com/videos/c/o/v/c8e3e4f097d94cadbea726b2ba861e44.mp4",
-  "https://cdn.shopify.com/videos/c/o/v/49dcfbb679ff4958a9e439e68bd426e8.mp4",
-  "https://cdn.shopify.com/videos/c/o/v/bca8e29d7ac2421d94defc070811b3aa.mp4",
-  "https://cdn.shopify.com/videos/c/o/v/eb53979c712e478a81536fbb77602f2f.mp4",
-];
 
 
 // ─── INSTAGRAM SECTION ────────────────────────────────────────────────────────
@@ -694,7 +655,7 @@ const heroSlides = [
 ];
 
 export default function Anasayfa() {
-  const { addToCart } = useCart();
+  useCart();
   const navigate = useNavigate();
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -703,12 +664,6 @@ export default function Anasayfa() {
   const [allProducts, setAllProducts] = useState<CoffeeProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const reviewsStickyRef = useRef<HTMLDivElement>(null);
-  const reviewsProgress = useScrollProgress(reviewsStickyRef);
-  const activeReviewIndex = Math.min(
-    REVIEWS.length - 1,
-    Math.max(0, Math.floor(reviewsProgress * REVIEWS.length))
-  );
 
   const featuredReveal = useReveal();
   const tabsReveal = useReveal();
