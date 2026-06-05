@@ -13,6 +13,7 @@
     "vite": "^7.3.2"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
     "@shopify/hydrogen-react": "^2026.4.0",

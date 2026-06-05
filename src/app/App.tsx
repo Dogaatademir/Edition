@@ -14,21 +14,16 @@ const Anasayfa = lazy(() => import('../pages/Anasayfa'));
 const Hakkimizda = lazy(() => import('../pages/Hakkimizda'));
 const Urun = lazy(() => import('../pages/Urun'));
 const Sss = lazy(() => import('../pages/Sss'));
-const Kargo = lazy(() => import('../pages/Kargo'));
-const Kvkk = lazy(() => import('../pages/Kvkk'));
 const NotFound = lazy(() => import('../pages/NotFound'));
 const Kahveler = lazy(() => import('../pages/Kahveler'));
 const Toptan = lazy(() => import('../pages/Toptan'));
 const Iletisim = lazy(() => import('../pages/Iletisim'));
 const Odeme = lazy(() => import('../pages/Odeme'));
 const Analitik = lazy(() => import('../components/AnalyticsDashboard'));
-
-// Yeni Eklenen Müşteri / Hesap Sayfaları
-const Giris = lazy(() => import('../pages/Giris'));
-const Kayit = lazy(() => import('../pages/Kayit'));
-const Hesap = lazy(() => import('../pages/Hesap'));
-const SifremiUnuttum = lazy(() => import('../pages/SifremiUnuttum'));
-const AramaSonuclari = lazy(() => import('../pages/AramaSonuclari'));
+const UyelikSozlesmesi = lazy(() => import('../pages/UyelikSozlesmesi'));
+const GizlilikSozlesmesi = lazy(() => import('../pages/GizlilikSozlesmesi'));
+const IadeSartlari = lazy(() => import('../pages/IadeSartlari'));
+const MesafeliSatisSozlesmesi = lazy(() => import('../pages/MesafeliSatisSozlesmesi'));
 
 const storeDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN;
 const storefrontToken = import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN;
@@ -112,20 +107,15 @@ function App() {
                   {/* ÜRÜN DETAY */}
                   <Route path="/urun/:id" element={<Urun />} />
 
-                  {/* MÜŞTERİ HESABI SAYFALARI */}
-                  <Route path="/hesap/giris" element={<Giris />} />
-                  <Route path="/hesap/kayit" element={<Kayit />} />
-                  <Route path="/hesap" element={<Hesap />} />
-                  <Route path="/hesap/sifremi-unuttum" element={<SifremiUnuttum />} />
-
                   {/* DİĞER SAYFALAR */}
                   <Route path="/sss" element={<Sss />} />
-                  <Route path="/kargo" element={<Kargo />} />
-                  <Route path="/kvkk" element={<Kvkk />} />
                   <Route path="/toptan" element={<Toptan />} />
                   <Route path="/iletisim" element={<Iletisim />} />
-                  <Route path="/arama" element={<AramaSonuclari />} />
                   <Route path="/analiz" element={<Analitik />} />
+                  <Route path="/uyelik-sozlesmesi" element={<UyelikSozlesmesi />} />
+                  <Route path="/gizlilik-sozlesmesi" element={<GizlilikSozlesmesi />} />
+                  <Route path="/iade-sartlari" element={<IadeSartlari />} />
+                  <Route path="/mesafeli-satis-sozlesmesi" element={<MesafeliSatisSozlesmesi />} />
 
                   <Route path="*" element={<NotFound />} />
                 </Routes>

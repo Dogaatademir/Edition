@@ -17,6 +17,7 @@ export interface CoffeeProduct {
   price: string;
   oldPrice?: string;
   image?: string;
+  images?: string[];
   badge?: string;
   origin?: string;
   process?: string;
@@ -84,6 +85,7 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
           description
           tags
           featuredImage { url altText }
+          images(first: 5) { nodes { url } }
           variants(first: 10) {
             nodes {
               id
@@ -91,6 +93,16 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
               price { amount }
               compareAtPrice { amount }
               image { url }
+              metafields(identifiers: [
+                { namespace: "custom", key: "2_gorsel" }
+              ]) {
+                key
+                reference {
+                  ... on MediaImage {
+                    image { url }
+                  }
+                }
+              }
             }
           }
           metafields(identifiers: [
@@ -122,15 +134,22 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
       variants.forEach((v: any) => {
         const isDefault = v.title === "Default Title";
         const productName = isDefault ? p.title : `${p.title} ${v.title}`;
-        
+
+        const variantMetaMap: Record<string, any> = {};
+        v.metafields?.forEach((m: any) => { if (m) variantMetaMap[m.key] = m; });
+        const hoverImageUrl = variantMetaMap["2_gorsel"]?.reference?.image?.url ?? null;
+
         flattenedProducts.push({
-          id: v.id, 
+          id: v.id,
           handle: p.handle,
           name: productName,
           description: p.description || "",
           price: `${parseFloat(v.price.amount).toFixed(2)} ₺`,
           oldPrice: v.compareAtPrice ? `${parseFloat(v.compareAtPrice.amount).toFixed(2)} ₺` : undefined,
           image: v.image?.url ?? p.featuredImage?.url,
+          images: hoverImageUrl
+            ? [v.image?.url ?? p.featuredImage?.url, hoverImageUrl]
+            : (p.images?.nodes || []).map((img: any) => img.url),
           badge: metaMap["badge"] ?? undefined,
           origin: metaMap["origin"] ?? undefined,
           process: metaMap["process"] ?? undefined,

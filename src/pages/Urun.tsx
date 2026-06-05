@@ -1,77 +1,45 @@
 // src/pages/Urun.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Minus, 
-  Plus, 
-  Truck, 
-  ShieldCheck, 
+import {
+  Minus,
+  Plus,
+  Truck,
+  ShieldCheck,
   Coffee,
   ChevronDown,
   ChevronUp,
-  ArrowLeft
+  ArrowLeft,
+  Bean,
+  Beaker,
+  Cone,
+  FlaskConical,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { fetchShopifyProductByHandle, type CoffeeProduct, type ProductVariant } from '../lib/shopify';
 import ProductInfoSection from '../components/ProductInfoSection';
 import { useMetaProductView } from '../hooks/useMetaAnalytics';
 
-// --- ÖZEL İKONLAR ---
 const grindOptions = [
-  {
-    id: 'Çekirdek',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10-4.5 10-10 10z"/>
-        <path d="M12 22c-2-4-2-16 0-20"/>
-      </svg>
-    )
-  },
-  {
-    id: 'French Press',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="7" y="6" width="10" height="16" rx="1" />
-        <path d="M17 10h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" />
-        <line x1="12" y1="2" x2="12" y2="6" />
-        <line x1="9" y1="2" x2="15" y2="2" />
-      </svg>
-    )
-  },
-  {
-    id: 'V60',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 3h16l-5.5 11h-5L4 3z" />
-        <path d="M9.5 14v6a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-6" />
-      </svg>
-    )
-  },
-  {
-    id: 'Chemex',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 3h8l-2.5 8h-3L8 3z" />
-        <path d="M9.5 11C7 11 5 13.5 5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2c0-3.5-2-6-4.5-6" />
-        <line x1="8" y1="11" x2="16" y2="11" />
-      </svg>
-    )
-  }
+  { id: 'Çekirdek',     Icon: Bean          },
+  { id: 'French Press', Icon: Beaker    },
+  { id: 'V60',          Icon: Cone          },
+  { id: 'Chemex',       Icon: FlaskConical  },
 ];
 
 // --- YARDIMCI BİLEŞENLER ---
 const QuantitySelector = ({ quantity, setQuantity }: { quantity: number, setQuantity: (q: number) => void }) => (
-  <div className="flex items-center border border-[#E5E5E5] h-12 w-32 bg-[#FFFFFF]">
+  <div className="flex items-center border border-[#1b1b1b]/15 h-12 w-32 bg-[#fdfaf6]">
     <button 
       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-      className="flex-1 flex items-center justify-center text-[#000000] hover:bg-[#FAFAFA] transition-colors h-full border-r border-[#E5E5E5]"
+      className="flex-1 flex items-center justify-center text-[#1b1b1b] hover:bg-[#f0e8dc] transition-colors h-full border-r border-[#1b1b1b]/15"
     >
       <Minus className="w-4 h-4" />
     </button>
-    <span className="flex-1 text-center font-mono font-bold text-[#000000] text-sm">{quantity}</span>
+    <span className="flex-1 text-center font-mono font-bold text-[#1b1b1b] text-sm">{quantity}</span>
     <button 
       onClick={() => setQuantity(quantity + 1)}
-      className="flex-1 flex items-center justify-center text-[#000000] hover:bg-[#FAFAFA] transition-colors h-full border-l border-[#E5E5E5]"
+      className="flex-1 flex items-center justify-center text-[#1b1b1b] hover:bg-[#f0e8dc] transition-colors h-full border-l border-[#1b1b1b]/15"
     >
       <Plus className="w-4 h-4" />
     </button>
@@ -79,18 +47,18 @@ const QuantitySelector = ({ quantity, setQuantity }: { quantity: number, setQuan
 );
 
 const AccordionItem = ({ title, children, isOpen, onClick }: { title: string, children: React.ReactNode, isOpen: boolean, onClick: () => void }) => (
-  <div className="border-b border-[#E5E5E5]">
+  <div className="border-b border-[#1b1b1b]/15">
     <button 
       onClick={onClick}
-      className="w-full py-5 flex items-center justify-between text-left group bg-[#FFFFFF] hover:bg-[#FAFAFA] transition-colors px-2"
+      className="w-full py-5 flex items-center justify-between text-left group bg-[#fdfaf6] hover:bg-[#f0e8dc] transition-colors px-2"
     >
-      <span className="font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#000000]">
+      <span className="font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#1b1b1b]">
         {title}
       </span>
-      {isOpen ? <ChevronUp className="w-4 h-4 text-[#000000]" /> : <ChevronDown className="w-4 h-4 text-[#888888]" />}
+      {isOpen ? <ChevronUp className="w-4 h-4 text-[#1b1b1b]" /> : <ChevronDown className="w-4 h-4 text-[#7b6a5c]" />}
     </button>
     <div className={`overflow-hidden transition-all duration-300 ease-in-out px-2 ${isOpen ? 'max-h-96 opacity-100 pb-5' : 'max-h-0 opacity-0'}`}>
-      <div className="text-[#555555] font-sans font-light leading-relaxed text-[0.9rem]">
+      <div className="text-[#5c4635] font-sans font-light leading-relaxed text-[0.9rem]">
         {children}
       </div>
     </div>
@@ -179,10 +147,10 @@ const Urun = () => {
 
   if (loading) {
     return (
-      <main className="bg-[#FFFFFF] min-h-screen pt-28 pb-20 flex items-center justify-center">
+      <main className="bg-[#fdfaf6] min-h-screen pt-28 pb-20 flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
-          <Coffee className="w-8 h-8 text-[#E5E5E5] mb-4 animate-spin-slow" />
-          <span className="font-mono text-[0.65rem] tracking-[0.2em] text-[#888888] uppercase">Seçki Hazırlanıyor...</span>
+          <Coffee className="w-8 h-8 text-[#1b1b1b/20] mb-4 animate-spin-slow" />
+          <span className="font-mono text-[0.65rem] tracking-[0.2em] text-[#7b6a5c] uppercase">Seçki Hazırlanıyor...</span>
         </div>
       </main>
     );
@@ -190,14 +158,14 @@ const Urun = () => {
 
   if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFFFFF] text-[#000000] border-t border-[#E5E5E5]">
-        <div className="font-mono text-[0.8rem] tracking-[0.15em] text-[#888888] uppercase mb-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#fdfaf6] text-[#1b1b1b] border-t border-[#1b1b1b]/15">
+        <div className="font-mono text-[0.8rem] tracking-[0.15em] text-[#7b6a5c] uppercase mb-4">
           Hata 404
         </div>
         <p className="font-serif text-[2rem] mb-8">Aradığınız seçki bulunamadı.</p>
         <button 
           onClick={() => navigate('/kahveler')} 
-          className="font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#FFFFFF] bg-[#000000] border border-[#000000] px-8 py-3 transition-colors hover:bg-[#555555] hover:border-[#555555]"
+          className="font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#f7f0e7] bg-[#1b1b1b] border border-[#1b1b1b] px-8 py-3 transition-colors hover:bg-[#3a3530] hover:border-[#3a3530]"
         >
           Seçkiye Dön
         </button>
@@ -239,22 +207,22 @@ const Urun = () => {
 
   return (
     <>
-      <main className="bg-[#FFFFFF] min-h-screen pt-28 pb-32 font-sans selection:bg-[#000000] selection:text-[#FFFFFF]">
+      <main className="bg-[#fdfaf6] min-h-screen pt-28 pb-32 font-sans selection:bg-[#1b1b1b] selection:text-[#f7f0e7]">
         <div className="mx-auto max-w-[1440px] px-6 md:px-10">
           
           {/* Breadcrumb */}
-          <div className="flex items-center gap-3 font-mono text-[0.55rem] tracking-[0.2em] uppercase text-[#888888] mb-8 pb-4 border-b border-[#E5E5E5]">
-            <Link to="/kahveler" className="hover:text-[#000000] transition-colors flex items-center gap-1.5">
+          <div className="flex items-center gap-3 font-mono text-[0.55rem] tracking-[0.2em] uppercase text-[#7b6a5c] mb-8 pb-4 border-b border-[#1b1b1b]/15">
+            <Link to="/kahveler" className="hover:text-[#1b1b1b] transition-colors flex items-center gap-1.5">
               <ArrowLeft className="w-3 h-3" /> Tüm Seçki
             </Link>
             <span className="opacity-30">/</span>
-            <span className="text-[#000000]">{product.name}</span>
+            <span className="text-[#1b1b1b]">{product.name}</span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 border border-[#E5E5E5] bg-[#FAFAFA]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 border border-[#1b1b1b]/15 bg-[#f0e8dc]">
             
             {/* SOL: GÖRSEL */}
-            <div className="w-full border-b lg:border-b-0 lg:border-r border-[#E5E5E5] bg-[#FFFFFF]">
+            <div className="w-full border-b lg:border-b-0 lg:border-r border-[#1b1b1b]/10 bg-[#efe5d8]">
               <div className="relative w-full aspect-square lg:aspect-auto lg:h-[calc(100vh-130px)] lg:sticky lg:top-[130px] flex items-center justify-center overflow-hidden p-12 lg:p-20 group">
                 {product.image ? (
                   <img 
@@ -264,26 +232,26 @@ const Urun = () => {
                   />
                 ) : (
                   <svg width="120" height="120" viewBox="0 0 80 80" fill="none" className="opacity-20 z-10">
-                    <ellipse cx="40" cy="40" rx="28" ry="36" stroke="#000000" strokeWidth="1.5" />
-                    <path d="M40 10 Q55 25 55 40 Q55 55 40 70" stroke="#000000" strokeWidth="1.5" strokeDasharray="3 3" />
-                    <path d="M40 10 Q25 25 25 40 Q25 55 40 70" stroke="#000000" strokeWidth="1" strokeDasharray="2 4" />
-                    <ellipse cx="40" cy="40" rx="4" ry="6" stroke="#000000" strokeWidth="1" />
+                    <ellipse cx="40" cy="40" rx="28" ry="36" stroke="#1b1b1b" strokeWidth="1.5" />
+                    <path d="M40 10 Q55 25 55 40 Q55 55 40 70" stroke="#1b1b1b" strokeWidth="1.5" strokeDasharray="3 3" />
+                    <path d="M40 10 Q25 25 25 40 Q25 55 40 70" stroke="#1b1b1b" strokeWidth="1" strokeDasharray="2 4" />
+                    <ellipse cx="40" cy="40" rx="4" ry="6" stroke="#1b1b1b" strokeWidth="1" />
                   </svg>
                 )}
                 
                 <div className="absolute top-6 left-6 flex flex-col gap-2 z-20">
-                  <span className="font-mono text-[0.6rem] tracking-[0.2em] text-[#888888] uppercase">
+                  <span className="font-mono text-[0.6rem] tracking-[0.2em] text-[#7b6a5c] uppercase">
                     {product.code || 'NO-CODE'}
                   </span>
                   {product.badge && (
-                    <span className="font-mono text-[0.55rem] font-semibold tracking-[0.15em] uppercase text-[#FFFFFF] bg-[#000000] px-3 py-1 self-start">
+                    <span className="font-mono text-[0.55rem] font-semibold tracking-[0.15em] uppercase text-[#f7f0e7] bg-[#1b1b1b] px-3 py-1 self-start">
                       {product.badge}
                     </span>
                   )}
                 </div>
 
                 <div className="absolute bottom-6 right-6 z-20">
-                  <span className="font-mono text-[0.55rem] tracking-[0.2em] text-[#555555] uppercase border border-[#E5E5E5] px-3 py-1 bg-[#FFFFFF]">
+                  <span className="font-mono text-[0.55rem] tracking-[0.2em] text-[#5c4635] uppercase border border-[#1b1b1b]/15 px-3 py-1 bg-[#fdfaf6]">
                     {product.roast || 'Özel Kavrum'}
                   </span>
                 </div>
@@ -291,23 +259,23 @@ const Urun = () => {
             </div>
 
             {/* SAĞ: BİLGİ */}
-            <div className="flex flex-col p-8 lg:p-14 bg-[#FFFFFF]">
+            <div className="flex flex-col p-8 lg:p-14 bg-[#fdfaf6]">
               
               <div className="mb-6">
-                <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-[#888888] mb-3 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#888888]">
+                <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-[#7b6a5c] mb-3 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#7b6a5c]">
                   {product.origin || 'Bilinmeyen Köken'} {product.process ? `· ${product.process}` : ''}
                 </div>
 
-                <h1 className="font-serif text-[clamp(2rem,3.5vw,3.5rem)] text-[#000000] leading-[1.05] tracking-[-0.02em] mb-6">
+                <h1 className="font-serif text-[clamp(2rem,3.5vw,3.5rem)] text-[#1b1b1b] leading-[1.05] tracking-[-0.02em] mb-6">
                   {product.name}
                 </h1>
                 
-                <div className="flex items-end gap-4 border-b border-[#E5E5E5] pb-6">
-                  <span className="font-mono text-[1.5rem] text-[#000000] font-semibold tracking-tight transition-all">
+                <div className="flex items-end gap-4 border-b border-[#1b1b1b]/15 pb-6">
+                  <span className="font-mono text-[1.5rem] text-[#1b1b1b] font-semibold tracking-tight transition-all">
                     {displayPrice}
                   </span>
                   {displayOldPrice && (
-                    <span className="font-mono text-[1rem] text-[#888888] line-through mb-1">
+                    <span className="font-mono text-[1rem] text-[#7b6a5c] line-through mb-1">
                       {displayOldPrice}
                     </span>
                   )}
@@ -318,7 +286,7 @@ const Urun = () => {
               <div className="mb-8">
                 {product.variants && product.variants.length > 0 && product.variants[0].weight !== "Default Title" && (
                   <div className="mb-6">
-                    <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#888888] uppercase block mb-3">Gramaj Seçimi</span>
+                    <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#7b6a5c] uppercase block mb-3">Gramaj Seçimi</span>
                     <div className="flex flex-wrap gap-3">
                       {product.variants.map((variant) => (
                         <button
@@ -326,8 +294,8 @@ const Urun = () => {
                           onClick={() => setSelectedVariant(variant)}
                           className={`px-5 py-2.5 border font-mono text-[0.65rem] tracking-[0.15em] uppercase transition-colors ${
                             selectedVariant?.id === variant.id 
-                              ? 'border-[#000000] bg-[#000000] text-[#FFFFFF]' 
-                              : 'border-[#E5E5E5] bg-[#FFFFFF] text-[#555555] hover:border-[#000000]'
+                              ? 'border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7]' 
+                              : 'border-[#1b1b1b]/15 bg-[#fdfaf6] text-[#5c4635] hover:border-[#1b1b1b]'
                           }`}
                         >
                           {variant.weight}
@@ -339,24 +307,20 @@ const Urun = () => {
 
                 {isFiltre && (
                   <div className="mb-6">
-                    <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#888888] uppercase block mb-3">Öğütme Derecesi</span>
+                    <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#7b6a5c] uppercase block mb-3">Öğütme Derecesi</span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {grindOptions.map((g) => (
+                      {grindOptions.map(({ id, Icon }) => (
                         <button
-                          key={g.id}
-                          onClick={() => setGrind(g.id)}
-                          className={`flex flex-col items-center justify-center gap-3 p-4 border transition-all duration-300 ${
-                            grind === g.id 
-                              ? 'border-[#000000] bg-[#000000] text-[#FFFFFF] shadow-sm' 
-                              : 'border-[#E5E5E5] bg-[#FFFFFF] text-[#555555] hover:border-[#000000] hover:text-[#000000]'
+                          key={id}
+                          onClick={() => setGrind(id)}
+                          className={`flex flex-col items-center justify-center gap-2 p-4 border font-mono text-[0.6rem] tracking-[0.12em] uppercase transition-all duration-300 ${
+                            grind === id
+                              ? 'border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7]'
+                              : 'border-[#1b1b1b]/15 bg-transparent text-[#5c4635] hover:border-[#1b1b1b] hover:text-[#1b1b1b]'
                           }`}
                         >
-                          <div className={`transition-transform duration-300 ${grind === g.id ? 'scale-110' : ''}`}>
-                            {g.icon}
-                          </div>
-                          <span className="font-mono text-[0.55rem] tracking-[0.05em] uppercase text-center">
-                            {g.id}
-                          </span>
+                          <Icon className="w-5 h-5" strokeWidth={1.3} />
+                          {id}
                         </button>
                       ))}
                     </div>
@@ -365,7 +329,7 @@ const Urun = () => {
               </div>
 
               {/* Kısa Açıklama */}
-              <p className="text-[#555555] font-sans font-light text-[0.95rem] leading-[1.85] mb-10 line-clamp-3">
+              <p className="text-[#5c4635] font-sans font-light text-[0.95rem] leading-[1.85] mb-10 line-clamp-3">
                 {product.description}
               </p>
 
@@ -375,29 +339,29 @@ const Urun = () => {
                   <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
                   <button 
                     onClick={handleAddToCart}
-                    className="flex-1 flex items-center justify-center gap-3 py-4 font-mono text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border border-[#000000] bg-[#000000] text-[#FFFFFF] hover:bg-[#555555] hover:border-[#555555]"
+                    className="flex-1 flex items-center justify-center gap-3 py-4 font-mono text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] hover:bg-[#3a3530] hover:border-[#3a3530]"
                   >
                     Sepete Ekle
                   </button>
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2.5 font-sans font-light text-[0.8rem] text-[#555555] bg-[#FAFAFA] border border-[#E5E5E5] px-4 py-2 w-max">
+                  <div className="flex items-center gap-2.5 font-sans font-light text-[0.8rem] text-[#5c4635]">
                     <span className="text-[1rem]">👀</span>
-                    <span><strong className="text-[#000000] font-medium">{viewers}</strong> müşteri bu ürünü görüntülüyor</span>
+                    <span><strong className="text-[#1b1b1b] font-medium">{viewers}</strong> müşteri bu ürünü görüntülüyor</span>
                   </div>
 
-                  <div className="bg-[#FAFAFA] border border-[#E5E5E5] px-4 py-3 flex flex-col gap-2.5">
-                    <div className="font-sans text-[0.8rem] text-[#555555]">
+                  <div className="flex flex-col gap-2.5">
+                    <div className="font-sans text-[0.8rem] text-[#5c4635]">
                       {remainingForFreeShipping > 0 ? (
-                        <>Ücretsiz Kargo için <strong className="text-[#000000] font-medium">{remainingForFreeShipping.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</strong> değerinde ürün ekleyin.</>
+                        <>Ücretsiz Kargo için <strong className="text-[#1b1b1b] font-medium">{remainingForFreeShipping.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</strong> değerinde ürün ekleyin.</>
                       ) : (
-                        <span className="text-[#000000] font-medium">🎉 Sepetiniz ücretsiz kargo hakkı kazandı!</span>
+                        <span className="text-[#1b1b1b] font-medium">🎉 Sepetiniz ücretsiz kargo hakkı kazandı!</span>
                       )}
                     </div>
-                    <div className="h-1.5 w-full bg-[#E5E5E5] overflow-hidden">
+                    <div className="h-1.5 w-full bg-[#1b1b1b/10] overflow-hidden">
                       <div 
-                        className="h-full bg-[#000000] transition-all duration-700 ease-out"
+                        className="h-full bg-[#1b1b1b] transition-all duration-700 ease-out"
                         style={{ width: `${progressPercentage}%` }}
                       />
                     </div>
@@ -406,7 +370,7 @@ const Urun = () => {
               </div>
 
               {/* Accordion */}
-              <div className="mb-10 border-t border-[#E5E5E5]">
+              <div className="mb-10 border-t border-[#1b1b1b]/15">
                 <AccordionItem 
                   title="Profil Özellikleri" 
                   isOpen={openSection === 'desc'} 
@@ -442,17 +406,17 @@ const Urun = () => {
 
               {/* İkonlu Özellikler */}
               <div className="grid grid-cols-3 gap-6 pt-6 opacity-80">
-                <div className="flex flex-col items-start gap-2 border-l-2 border-[#E5E5E5] pl-4">
-                  <Coffee className="w-5 h-5 text-[#000000]" strokeWidth={1.5} />
-                  <span className="font-mono text-[0.55rem] uppercase tracking-[0.15em] text-[#555555]">Özel Harman</span>
+                <div className="flex flex-col items-center gap-3">
+                  <Coffee className="w-7 h-7 text-[#1b1b1b]" strokeWidth={1.3} />
+                  <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-[#5c4635] text-center">Özel Harman</span>
                 </div>
-                <div className="flex flex-col items-start gap-2 border-l-2 border-[#E5E5E5] pl-4">
-                  <Truck className="w-5 h-5 text-[#000000]" strokeWidth={1.5} />
-                  <span className="font-mono text-[0.55rem] uppercase tracking-[0.15em] text-[#555555]">Taze Teslimat</span>
+                <div className="flex flex-col items-center gap-3">
+                  <Truck className="w-7 h-7 text-[#1b1b1b]" strokeWidth={1.3} />
+                  <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-[#5c4635] text-center">Taze Teslimat</span>
                 </div>
-                <div className="flex flex-col items-start gap-2 border-l-2 border-[#E5E5E5] pl-4">
-                  <ShieldCheck className="w-5 h-5 text-[#000000]" strokeWidth={1.5} />
-                  <span className="font-mono text-[0.55rem] uppercase tracking-[0.15em] text-[#555555]">Güvenli Ödeme</span>
+                <div className="flex flex-col items-center gap-3">
+                  <ShieldCheck className="w-7 h-7 text-[#1b1b1b]" strokeWidth={1.3} />
+                  <span className="font-mono text-[0.65rem] uppercase tracking-[0.15em] text-[#5c4635] text-center">Güvenli Ödeme</span>
                 </div>
               </div>
 
@@ -463,15 +427,15 @@ const Urun = () => {
           <ProductInfoSection product={product} />
           
           {/* Uzun Açıklama */}
-          <div className="mt-16 md:mt-24 border-t border-[#E5E5E5] pt-16 md:pt-24 pb-12 relative overflow-hidden">
+          <div className="mt-16 md:mt-24 border-t border-[#1b1b1b]/15 pt-16 md:pt-24 pb-12 relative overflow-hidden">
             <div className="max-w-[900px] mx-auto relative z-10 flex flex-col items-center">
-              <span className="font-mono text-[0.6rem] tracking-[0.3em] uppercase text-[#888888] mb-4 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#888888] after:content-[''] after:block after:w-5 after:h-[1px] after:bg-[#888888]">
+              <span className="font-mono text-[0.6rem] tracking-[0.3em] uppercase text-[#7b6a5c] mb-4 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#7b6a5c] after:content-[''] after:block after:w-5 after:h-[1px] after:bg-[#7b6a5c]">
                 Hikayesi & Profili
               </span>
-              <h2 className="font-serif text-[clamp(2rem,4vw,3rem)] text-[#000000] leading-[1.1] tracking-[-0.02em] mb-10 text-center">
-                Bu Seçkiyi <em className="italic text-[#555555]">Yakından Tanıyın</em>
+              <h2 className="font-serif text-[clamp(2rem,4vw,3rem)] text-[#1b1b1b] leading-[1.1] tracking-[-0.02em] mb-10 text-center">
+                Bu Seçkiyi Yakından Tanıyın
               </h2>
-              <div className="font-sans font-light text-[1rem] md:text-[1.1rem] leading-[2.2] text-[#555555] whitespace-pre-line text-center md:text-justify px-4">
+              <div className="font-sans font-light text-[1rem] md:text-[1.1rem] leading-[2.2] text-[#5c4635] whitespace-pre-line text-center md:text-justify px-4">
                 {product.description}
               </div>
             </div>
@@ -482,23 +446,23 @@ const Urun = () => {
 
       {/* STICKY SEPETE EKLE BARI */}
       <div 
-        className={`fixed bottom-0 left-0 right-0 z-50 bg-[#FFFFFF] border-t border-[#E5E5E5] p-3 md:p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] transform transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`fixed bottom-0 left-0 right-0 z-50 bg-[#fdfaf6] border-t border-[#1b1b1b]/15 p-3 md:p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] transform transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
       >
         <div className="max-w-[1440px] mx-auto w-full flex items-center justify-between px-2 md:px-10">
           
           <div className="flex items-center gap-3 md:gap-6">
             {product.image ? (
-              <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#FAFAFA] border border-[#E5E5E5] p-1 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#f0e8dc] border border-[#1b1b1b]/15 p-1 flex items-center justify-center shrink-0">
                 <img src={product.image} alt={product.name} className="w-full h-full object-contain mix-blend-multiply" />
               </div>
             ) : (
-              <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#FAFAFA] border border-[#E5E5E5] p-1 flex items-center justify-center shrink-0">
-                <Coffee className="w-5 h-5 text-[#888888] opacity-50" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#f0e8dc] border border-[#1b1b1b]/15 p-1 flex items-center justify-center shrink-0">
+                <Coffee className="w-5 h-5 text-[#7b6a5c] opacity-50" />
               </div>
             )}
             
             <div className="flex flex-col justify-center gap-1.5">
-              <span className="font-serif text-[0.95rem] md:text-[1.1rem] text-[#000000] leading-none">{product.name}</span>
+              <span className="font-serif text-[0.95rem] md:text-[1.1rem] text-[#1b1b1b] leading-none">{product.name}</span>
               
               <div className="flex items-center gap-2">
                 {product.variants && product.variants.length > 0 && product.variants[0].weight !== "Default Title" && (
@@ -509,13 +473,13 @@ const Urun = () => {
                         const variant = product.variants.find(v => v.id === e.target.value);
                         if (variant) setSelectedVariant(variant);
                       }}
-                      className="appearance-none bg-transparent border border-[#E5E5E5] px-2 py-1 pr-6 font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.05em] uppercase text-[#555555] hover:text-[#000000] hover:border-[#888888] focus:outline-none transition-colors cursor-pointer"
+                      className="appearance-none bg-transparent border border-[#1b1b1b]/15 px-2 py-1 pr-6 font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.05em] uppercase text-[#5c4635] hover:text-[#1b1b1b] hover:border-[#1b1b1b] focus:outline-none transition-colors cursor-pointer"
                     >
                       {product.variants.map(v => (
                         <option key={v.id} value={v.id}>{v.weight}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#888888] pointer-events-none" />
+                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b6a5c] pointer-events-none" />
                   </div>
                 )}
 
@@ -524,18 +488,18 @@ const Urun = () => {
                     <select 
                       value={grind} 
                       onChange={(e) => setGrind(e.target.value)}
-                      className="appearance-none bg-transparent border border-[#E5E5E5] px-2 py-1 pr-6 font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.05em] uppercase text-[#555555] hover:text-[#000000] hover:border-[#888888] focus:outline-none transition-colors cursor-pointer"
+                      className="appearance-none bg-transparent border border-[#1b1b1b]/15 px-2 py-1 pr-6 font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.05em] uppercase text-[#5c4635] hover:text-[#1b1b1b] hover:border-[#1b1b1b] focus:outline-none transition-colors cursor-pointer"
                     >
-                      {grindOptions.map(g => (
-                        <option key={g.id} value={g.id}>{g.id}</option>
+                      {grindOptions.map(({ id }) => (
+                        <option key={id} value={id}>{id}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#888888] pointer-events-none" />
+                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b6a5c] pointer-events-none" />
                   </div>
                 )}
 
                 {(!product.variants || product.variants.length === 0 || product.variants[0].weight === "Default Title") && !isFiltre && (
-                  <span className="font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.1em] text-[#888888] uppercase">
+                  <span className="font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.1em] text-[#7b6a5c] uppercase">
                     {product.roast || 'Özel Kavrum'}
                   </span>
                 )}
@@ -545,13 +509,13 @@ const Urun = () => {
           
           <div className="flex items-center gap-4 md:gap-8">
             <div className="flex-col items-end hidden md:flex">
-              {displayOldPrice && <span className="font-mono text-[0.55rem] line-through text-[#888888] mb-0.5">{displayOldPrice}</span>}
-              <span className="font-mono font-semibold text-[1.1rem] text-[#000000] leading-none">{displayPrice}</span>
+              {displayOldPrice && <span className="font-mono text-[0.55rem] line-through text-[#7b6a5c] mb-0.5">{displayOldPrice}</span>}
+              <span className="font-mono font-semibold text-[1.1rem] text-[#1b1b1b] leading-none">{displayPrice}</span>
             </div>
             
             <button 
               onClick={handleAddToCart}
-              className="flex items-center justify-center font-mono text-[0.6rem] md:text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border border-[#000000] bg-[#000000] text-[#FFFFFF] px-6 py-3.5 md:px-10 md:py-4 hover:bg-[#555555] hover:border-[#555555] whitespace-nowrap"
+              className="flex items-center justify-center font-mono text-[0.6rem] md:text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] px-6 py-3.5 md:px-10 md:py-4 hover:bg-[#3a3530] hover:border-[#3a3530] whitespace-nowrap"
             >
               Sepete Ekle
             </button>

@@ -1,77 +1,298 @@
 // src/pages/Anasayfa.tsx
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Matter from "matter-js";
+import { X, Minus, Plus } from "lucide-react";
 import { useCart } from "../context/CartContext";
-import { fetchShopifyProducts, type CoffeeProduct } from "../lib/shopify";
+import { fetchShopifyProducts, fetchShopifyProductByHandle, type CoffeeProduct, type ProductVariant } from "../lib/shopify";
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setVisible(true); obs.disconnect(); }
-    }, { threshold });
+
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold }
+    );
+
     obs.observe(el);
     return () => obs.disconnect();
   }, [threshold]);
+
   return { ref, visible };
 }
 
 function useScrollProgress(ref: React.RefObject<HTMLDivElement | null>) {
   const [progress, setProgress] = useState(0);
+
   useEffect(() => {
-    const handle = () => {
+    const handleScroll = () => {
       const el = ref.current;
       if (!el) return;
-      const { top, height } = el.getBoundingClientRect();
-      const total = height - window.innerHeight;
-      if (total <= 0) return;
-      setProgress(Math.max(0, Math.min(1, -top / total)));
+
+      const rect = el.getBoundingClientRect();
+      const scrollable = rect.height - window.innerHeight;
+      if (scrollable <= 0) {
+        setProgress(0);
+        return;
+      }
+
+      setProgress(Math.max(0, Math.min(1, -rect.top / scrollable)));
     };
-    window.addEventListener('scroll', handle, { passive: true });
-    handle();
-    return () => window.removeEventListener('scroll', handle);
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
   }, [ref]);
+
   return progress;
 }
+
+// ─── QUICK ADD MODAL ──────────────────────────────────────────────────────────
+const grindOptions = ["ÇEKİRDEK", "FRENCH PRESS", "V60", "CHEMEX"];
+
+const QuickAddModal = ({
+  handle,
+  onClose,
+}: {
+  handle: string;
+  onClose: () => void;
+}) => {
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+  const [product, setProduct] = useState<CoffeeProduct | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [grind, setGrind] = useState("Çekirdek");
+  const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    fetchShopifyProductByHandle(handle)
+      .then((data) => {
+        setProduct(data);
+        if (data?.variants?.length) setSelectedVariant(data.variants[0]);
+      })
+      .finally(() => setLoading(false));
+  }, [handle]);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  const handleAdd = () => {
+    if (!product) return;
+    const isFiltre = product.category.includes("filtre");
+    let name = product.name;
+    if (selectedVariant && selectedVariant.weight !== "Default Title") name += ` - ${selectedVariant.weight}`;
+    if (isFiltre) name += ` (${grind})`;
+    addToCart({
+      ...product,
+      id: Date.now().toString(),
+      variantId: selectedVariant?.id ?? product.variants?.[0]?.id,
+      name,
+      price: selectedVariant?.price ?? product.price,
+    } as any, quantity);
+    setAdded(true);
+    setTimeout(() => { setAdded(false); onClose(); }, 1200);
+  };
+
+  const isFiltre = product?.category.includes("filtre");
+  const hasVariants = product?.variants?.length && product.variants[0].weight !== "Default Title";
+  const displayPrice = selectedVariant?.price ?? product?.price ?? "";
+  const displayOldPrice = selectedVariant?.oldPrice ?? product?.oldPrice;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[80] bg-[#1b1b1b]/50 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal — mobilde alttan slide, masaüstünde ortalanmış */}
+      <div className="fixed inset-x-0 bottom-0 z-[90] md:inset-0 md:flex md:items-center md:justify-center md:p-2">
+        <div className="w-full md:max-w-5xl bg-[#fdfaf6] shadow-2xl animate-in slide-in-from-bottom-4 md:slide-in-from-bottom-0 duration-300 max-h-[95vh] md:h-[96vh] flex flex-col">
+
+          {/* Kapat butonu */}
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 z-10 text-[#7b6a5c] hover:text-[#1b1b1b] transition-colors bg-[#fdfaf6]/80 p-1"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {loading ? (
+            <div className="flex h-64 items-center justify-center">
+              <span className="font-mono text-[0.6rem] tracking-[0.2em] text-[#7b6a5c] animate-pulse">YÜKLENİYOR...</span>
+            </div>
+          ) : product ? (
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+
+              {/* Sol: Görsel */}
+              <div className="hidden md:flex w-[48%] shrink-0 bg-[#f0e8dc] items-center justify-center p-12">
+                {product.image && (
+                  <img src={product.image} alt={product.name} className="h-full w-full object-contain max-h-[680px]" />
+                )}
+              </div>
+
+              {/* Mobil: küçük görsel + başlık yan yana */}
+              <div className="flex md:hidden items-center gap-4 px-5 pt-6 pb-4 border-b border-[#1b1b1b]/10">
+                {product.image && (
+                  <div className="h-20 w-16 shrink-0 bg-[#f0e8dc] flex items-center justify-center overflow-hidden">
+                    <img src={product.image} alt={product.name} className="h-full w-full object-contain" />
+                  </div>
+                )}
+                <div>
+                  <p className="font-mono text-[0.52rem] tracking-[0.15em] text-[#7b6a5c] mb-0.5">{product.origin}</p>
+                  <h3 className="font-serif text-[1.1rem] leading-tight text-[#1b1b1b]">{product.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-[0.9rem] font-semibold text-[#1b1b1b]">{displayPrice}</span>
+                    {displayOldPrice && <span className="font-mono text-[0.72rem] text-[#9b9288] line-through">{displayOldPrice}</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sağ: İçerik */}
+              <div className="flex flex-col flex-1 overflow-y-auto p-6 md:p-10 gap-6">
+
+                {/* Masaüstü başlık */}
+                <div className="hidden md:block">
+                  <p className="font-mono text-[0.55rem] tracking-[0.15em] text-[#7b6a5c] mb-1">{product.origin}</p>
+                  <h3 className="font-serif text-[1.6rem] leading-tight text-[#1b1b1b] mb-3">{product.name}</h3>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-[1.2rem] font-semibold text-[#1b1b1b]">{displayPrice}</span>
+                    {displayOldPrice && <span className="font-mono text-[0.9rem] text-[#9b9288] line-through">{displayOldPrice}</span>}
+                  </div>
+                </div>
+
+                {/* Kısa açıklama */}
+                {product.description && (
+                  <p className="font-sans font-light text-[0.85rem] text-[#5c4635] leading-relaxed">{product.description}</p>
+                )}
+
+            {/* Varyant seçimi */}
+            {hasVariants && (
+              <div>
+                <span className="font-mono text-[0.58rem] tracking-[0.15em] text-[#7b6a5c] block mb-2">GRAMAJ</span>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVariant(v)}
+                      className={`px-4 py-2 border font-mono text-[0.6rem] tracking-[0.12em] uppercase transition-colors ${
+                        selectedVariant?.id === v.id
+                          ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#fdfaf6]"
+                          : "border-[#1b1b1b]/20 text-[#5c4635] hover:border-[#1b1b1b]"
+                      }`}
+                    >
+                      {v.weight}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Öğütme seçimi */}
+            {isFiltre && (
+              <div>
+                <span className="font-mono text-[0.58rem] tracking-[0.15em] text-[#7b6a5c] block mb-2">ÖĞÜTME</span>
+                <div className="flex flex-wrap gap-2">
+                  {grindOptions.map((g) => (
+                    <button
+                      key={g}
+                      onClick={() => setGrind(g)}
+                      className={`px-4 py-2 border font-mono text-[0.6rem] tracking-[0.12em] uppercase transition-colors ${
+                        grind === g
+                          ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#fdfaf6]"
+                          : "border-[#1b1b1b]/20 text-[#5c4635] hover:border-[#1b1b1b]"
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Adet + Sepete Ekle */}
+            <div className="flex gap-3 mt-1">
+              <div className="flex items-center border border-[#1b1b1b]/20 h-12">
+                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 h-full text-[#5c4635] hover:bg-[#f0e8dc] transition-colors border-r border-[#1b1b1b]/20">
+                  <Minus className="h-3 w-3" />
+                </button>
+                <span className="px-4 font-mono text-[0.75rem] text-[#1b1b1b]">{quantity}</span>
+                <button onClick={() => setQuantity(quantity + 1)} className="px-3 h-full text-[#5c4635] hover:bg-[#f0e8dc] transition-colors border-l border-[#1b1b1b]/20">
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+              <button
+                onClick={handleAdd}
+                className={`flex-1 h-12 font-mono text-[0.62rem] tracking-[0.15em] transition-colors border ${
+                  added
+                    ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#fdfaf6]"
+                    : "border-[#c17a3a] bg-[#c17a3a] text-[#fdfaf6] hover:bg-[#a0612a] hover:border-[#a0612a]"
+                }`}
+              >
+                {added ? "✓ EKLENDİ" : "SEPETE EKLE"}
+              </button>
+            </div>
+
+                {/* Ürüne git */}
+                <button
+                  onClick={() => { onClose(); navigate(`/urun/${product.handle}`); }}
+                  className="text-center font-mono text-[0.58rem] tracking-[0.15em] text-[#7b6a5c] hover:text-[#1b1b1b] transition-colors border-b border-[#7b6a5c]/30 pb-0.5 self-center"
+                >
+                  ÜRÜN DETAYINA GİT →
+                </button>
+
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </>
+  );
+};
 
 // ─── ALT BİLEŞEN: ÜRÜN KARTI ─────────────────────────────────────────────────
 const ProductCard = ({
   p,
-  onAdd,
+  onQuickAdd,
 }: {
   p: CoffeeProduct;
-  onAdd: (p: CoffeeProduct) => void;
+  onQuickAdd: (p: CoffeeProduct) => void;
 }) => {
   const navigate = useNavigate();
-  const [added, setAdded] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const secondImage = p.images && p.images.length > 1 ? p.images[1] : null;
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    onAdd(p);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1600);
+    onQuickAdd(p);
   };
 
-  // İndirim oranını hesaplayan fonksiyon
   const getDiscountPercent = () => {
     if (!p.oldPrice) return null;
     try {
-      // Temel sayısal parse işlemi (Farklı formatları desteklemek için)
       const cleanPrice = (s: string) => {
-        // Binlik ayracı olan noktaları temizle, virgülü noktaya çevir, harfleri at
-        const cleanStr = s.replace(/\./g, '').replace(/,/g, '.').replace(/[^\d.]/g, '');
+        const cleanStr = s.replace(/\./g, "").replace(/,/g, ".").replace(/[^\d.]/g, "");
         return parseFloat(cleanStr);
       };
-      
       const oldVal = cleanPrice(p.oldPrice);
       const curVal = cleanPrice(p.price);
-
       if (!isNaN(oldVal) && !isNaN(curVal) && oldVal > curVal && curVal > 0) {
         return Math.round(((oldVal - curVal) / oldVal) * 100);
       }
@@ -84,159 +305,421 @@ const ProductCard = ({
   const discount = getDiscountPercent();
 
   return (
-    <div
+    <article
       onClick={() => navigate(`/urun/${p.handle}`)}
-      className="group cursor-pointer flex flex-col w-full h-full"
+      className="group flex w-full cursor-pointer flex-col gap-3"
     >
-      <div className="relative w-full overflow-hidden mb-3 bg-[#EDE3D8] flex items-center justify-center">
-        {/* Normal Badge (Örn: YENİ, TÜKENDİ) */}
-        {p.badge && (
-          <span className="absolute top-3 left-3 z-10 font-mono text-[0.4rem] tracking-[0.15em] uppercase bg-[#1A0F08] text-[#FFFFFF] px-2.5 py-1">
-            {p.badge}
-          </span>
-        )}
-        
-        {/* İndirim Etiketi Görseli */}
-        {discount && (
-          <span className="absolute top-3 right-3 z-10 flex items-center justify-center font-mono text-[0.6rem] font-bold tracking-widest bg-[#A83C3C] text-[#FFFFFF] px-2 py-1 shadow-sm">
-            -%{discount}
-          </span>
-        )}
+      <div
+        className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden bg-[#f7f0e7]"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onTouchStart={() => setHovered(true)}
+        onTouchEnd={() => setHovered(false)}
+      >
+        <div className="absolute left-0 top-0 z-10 flex w-full items-start justify-between p-3">
+          {p.badge ? (
+            <span className="bg-[#1b1b1b] px-2.5 py-1 font-mono text-[0.55rem] tracking-[0.18em] text-[#fbf6ee]">
+              {p.badge}
+            </span>
+          ) : (
+            <span />
+          )}
+          {discount && (
+            <span className="border border-[#8b2f22] bg-[#fbf6ee] px-2 py-1 font-mono text-[0.58rem] font-bold tracking-[0.16em] text-[#8b2f22]">
+              -%{discount}
+            </span>
+          )}
+        </div>
 
         {p.image ? (
-          <img
-            src={p.image}
-            alt={p.name}
-            className="w-full h-auto object-contain group-hover:scale-[1.04] transition-transform duration-500 ease-out"
-          />
+          <>
+            <img
+              src={p.image}
+              alt={p.name}
+              className={`h-full w-full object-contain transition-all duration-500 ease-out group-hover:scale-[1.045] ${secondImage ? (hovered ? 'opacity-0' : 'opacity-100') : ''}`}
+              loading="lazy"
+            />
+            {secondImage && (
+              <img
+                src={secondImage}
+                alt={p.name}
+                className={`absolute inset-0 h-full w-full object-contain transition-all duration-500 ease-out group-hover:scale-[1.045] ${hovered ? 'opacity-100' : 'opacity-0'}`}
+                loading="lazy"
+              />
+            )}
+          </>
         ) : (
-          <div className="w-full aspect-square flex items-center justify-center">
-            <svg width="48" height="48" viewBox="0 0 80 80" fill="none" className="opacity-15">
-              <ellipse cx="40" cy="40" rx="28" ry="36" stroke="#1A0F08" strokeWidth="1.5" />
-              <path d="M40 10 Q55 25 55 40 Q55 55 40 70" stroke="#1A0F08" strokeWidth="1.5" strokeDasharray="3 3" />
+          <div className="flex h-full w-full items-center justify-center">
+            <svg width="64" height="64" viewBox="0 0 80 80" fill="none" className="opacity-20">
+              <ellipse cx="40" cy="40" rx="28" ry="36" stroke="#1b1b1b" strokeWidth="1.5" />
+              <path d="M40 10 Q55 25 55 40 Q55 55 40 70" stroke="#1b1b1b" strokeWidth="1.5" strokeDasharray="3 3" />
             </svg>
           </div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 h-14 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <button
-            onClick={handleAdd}
-            className={`font-mono text-[0.5rem] tracking-[0.2em] uppercase px-6 py-2.5 transition-all duration-200 ${
-              added
-                ? "bg-[#1A0F08] text-[#FAF6EF]"
-                : "bg-[#C17A3A] text-[#FFFFFF] hover:bg-[#9E5820]"
-            }`}
-          >
-            {added ? "✓ Eklendi" : "+ Sepete Ekle"}
-          </button>
-        </div>
+        <button
+          onClick={handleAdd}
+          className="absolute inset-x-4 bottom-4 translate-y-3 px-5 py-3 font-mono text-[0.62rem] tracking-[0.18em] opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 border border-[#1b1b1b] bg-[#fbf6ee] text-[#1b1b1b] hover:bg-[#1b1b1b] hover:text-[#fbf6ee]"
+        >
+          + SEPETE EKLE
+        </button>
       </div>
 
-      <div className="flex flex-col gap-2 flex-1 justify-between">
-        <div>
-          <h3 className="font-sans font-semibold text-[#1A0F08] text-[0.9rem] md:text-[0.95rem] leading-snug group-hover:text-[#C17A3A] transition-colors duration-300 line-clamp-2">
-            {p.name}
-          </h3>
-          {(p.origin || p.roast) && (
-            <p className="font-mono text-[0.38rem] tracking-[0.25em] uppercase text-[#9E8E7E] mt-1.5">
-              {p.origin}{p.roast ? ` · ${p.roast}` : ""}
-            </p>
-          )}
-        </div>
-
-        {/* Fiyat Alanı - Ürün İsminin Altında */}
-        <div className="flex items-center gap-2 mt-auto">
-          <span className={`font-mono font-semibold text-[0.95rem] leading-tight ${p.oldPrice ? 'text-[#A83C3C]' : 'text-[#1A0F08]'}`}>
+      <div>
+        <h3 className="font-sans text-[0.95rem] font-medium leading-snug text-[#1b1b1b] transition-colors duration-300 group-hover:text-[#C17A3A]">
+          {p.name}
+        </h3>
+        <div className="mt-1 flex items-center gap-2">
+          <span className={`font-mono text-[0.85rem] font-semibold ${p.oldPrice ? "text-[#8b2f22]" : "text-[#1b1b1b]"}`}>
             {p.price}
           </span>
           {p.oldPrice && (
-            <span className="font-mono text-[0.7rem] text-[#B0A090] line-through leading-tight">
+            <span className="font-mono text-[0.72rem] text-[#9b9288] line-through">
               {p.oldPrice}
             </span>
           )}
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
 // ─── YÜKLEME İSKELETİ ─────────────────────────────────────────────────────────
 const SkeletonCard = () => (
-  <div className="flex flex-col animate-pulse min-w-[240px] md:min-w-[280px] h-full">
-    <div className="w-full aspect-square bg-[#E8DDD5] mb-3" />
-    <div className="flex flex-col gap-2 flex-1">
-      <div className="h-4 bg-[#E5E5E5] rounded w-4/5 mb-1" />
-      <div className="h-[4px] bg-[#E5E5E5] rounded w-2/5" />
-      <div className="h-4 bg-[#E5E5E5] rounded w-1/3 mt-auto" />
+  <div className="flex h-full min-w-[240px] animate-pulse flex-col border border-[#1b1b1b]/10 bg-[#fbf6ee]">
+    <div className="aspect-[4/5] w-full bg-[#e7ddd1]" />
+    <div className="flex flex-1 flex-col gap-3 p-5">
+      <div className="h-4 w-4/5 rounded bg-[#ded4c9]" />
+      <div className="h-2 w-2/5 rounded bg-[#ded4c9]" />
+      <div className="mt-auto h-4 w-1/3 rounded bg-[#ded4c9]" />
     </div>
   </div>
 );
 
 // ─── SIKÇA SORULAN SORULAR BİLEŞENİ ───────────────────────────────────────────
-const FaqItem = ({ question, answer }: { question: string, answer: string }) => {
-  const [isOpen, setIsOpen] = useState(false);
+
+const PRODUCT_CATEGORY_LABELS = ["ESPRESSO", "FİLTRE", "TÜRK KAHVESİ"];
+const FEATURE_ITEMS = [
+  { title: "SİPARİŞE ÖZEL", subtitle: "HER KAVRUM TAZE" },
+  { title: "TEK KÖKEN", subtitle: "İZLENEBİLİR ÇEKİRDEK" },
+  { title: "SPECIALTY COFFEE", subtitle: "80+ PUAN ÇEKİRDEK" },
+  { title: "2022'DAN BERİ", subtitle: "100.000+ MUTLU FİNCAN" },
+];
+
+const KAHVE_KATEGORILERI = [
+  {
+    label: "TÜRK KAHVESİ",
+    title: "Gelenekten Gelen Derinlik",
+    text: "Yüzyıllık geleneği modern kavrum anlayışıyla buluşturuyoruz. Her fincan, doğru sıcaklıkta, köpüklü ve karakterli.",
+    cta: "KEŞFEDİN",
+    path: "/kahveler?kategori=turk-kahvesi",
+    image: "https://plus.unsplash.com/premium_photo-1732818135469-3bfc10ed83a2?w=900&auto=format&fit=crop&q=60",
+  },
+  {
+    label: "FİLTRE KAHVE",
+    title: "Sabahın En Saf Hali",
+    text: "Tek köken çekirdekler, hassas demleme profilleri. V60'tan Chemex'e her yöntem için siparişe özel öğütülür.",
+    cta: "DEMLEMEYİ SEÇ",
+    path: "/kahveler?kategori=filtre",
+    image: "https://images.unsplash.com/photo-1638202518327-956c496a5240?w=900&auto=format&fit=crop&q=60",
+  },
+  {
+    label: "ESPRESSO",
+    title: "Yoğun, Gövdeli, Unutulmaz",
+    text: "Özenle seçilmiş harmanlar, yüksek basınçta sıkıştırılmış lezzet. Evinizdeki espresso deneyimini bir üst seviyeye taşıyın.",
+    cta: "HARMANI İNCELE",
+    path: "/kahveler?kategori=espresso",
+    image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?q=80&w=2000&auto=format&fit=crop",
+  },
+];
+
+function KahveKategorileriSection() {
+  const navigate = useNavigate();
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const progress = useScrollProgress(stickyRef);
+  const activeIndex = Math.min(
+    KAHVE_KATEGORILERI.length - 1,
+    Math.max(0, Math.floor(progress * KAHVE_KATEGORILERI.length))
+  );
+
+  const scrollTo = (index: number) => {
+    const el = stickyRef.current;
+    if (!el) return;
+    const top = el.offsetTop;
+    const h = el.offsetHeight - window.innerHeight;
+    window.scrollTo({ top: top + h * (index / Math.max(1, KAHVE_KATEGORILERI.length - 1)), behavior: "smooth" });
+  };
 
   return (
-    <div className="border-b border-[#E5D8C5] pb-4 mb-4">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between text-left group"
+    <>
+      {/* Masaüstü: sticky horizontal — sol metin, sag yatay kayan video */}
+      <div
+        ref={stickyRef}
+        className="relative hidden border-b border-[#1b1b1b]/10 bg-[#efe5d8] md:block"
+        style={{ minHeight: `${KAHVE_KATEGORILERI.length * 100}vh` }}
       >
-        <span className="font-sans font-medium text-[#1A0F08] text-[0.95rem] group-hover:text-[#C17A3A] transition-colors pr-4">
-          {question}
-        </span>
-        <span className="font-mono text-xl text-[#C17A3A] shrink-0 leading-none">
-          {isOpen ? '−' : '+'}
-        </span>
-      </button>
-      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-40 opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
-        <p className="font-sans font-light text-[#6B5A4E] text-[0.85rem] leading-relaxed">
-          {answer}
-        </p>
+        <div className="sticky top-[130px] h-[calc(100vh-130px)] overflow-hidden">
+          <div className="flex h-full">
+
+            {/* SOL: metin + dot navigasyon (sticky-images-and-text__content) */}
+            <div className="relative flex w-1/2 shrink-0 flex-col justify-center overflow-hidden px-16 lg:px-24">
+
+              {/* Metin blokları — üst üste, aktif görünür */}
+              <div className="relative w-full">
+                {KAHVE_KATEGORILERI.map((step, index) => (
+                  <div
+                    key={`kat-text-${index}`}
+                    style={{
+                      transition: "opacity 0.6s ease, transform 0.6s ease",
+                      opacity: activeIndex === index ? 1 : 0,
+                      transform: activeIndex === index
+                        ? "translateY(0)"
+                        : index < activeIndex ? "translateY(-16px)" : "translateY(16px)",
+                      pointerEvents: activeIndex === index ? "auto" : "none",
+                      position: index === 0 ? "relative" : "absolute",
+                      inset: index === 0 ? undefined : "0",
+                    }}
+                  >
+                    <p className="font-sans text-[0.9rem] font-medium tracking-[0.2em] text-[#c38152]">
+                      {step.label}
+                    </p>
+                    <h3 className="mt-5 font-serif text-[clamp(1.6rem,2.5vw,2.8rem)] leading-[1.1] tracking-[-0.02em] text-[#1b1b1b]">
+                      {step.title}
+                    </h3>
+                    <p className="mt-6 max-w-[440px] font-sans font-light text-[1rem] leading-relaxed text-[#1b1b1b]/70">
+                      {step.text}
+                    </p>
+                    <button
+                      onClick={() => navigate(step.path)}
+                      className="mt-8 border border-[#1b1b1b] bg-[#1b1b1b] px-6 py-3 font-mono text-[0.6rem] tracking-[0.2em] text-[#f7f0e7] transition-all hover:bg-transparent hover:text-[#1b1b1b]"
+                    >
+                      {step.cta}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Dot navigasyon — yatay, altta */}
+              <div className="absolute bottom-10 left-16 flex items-center gap-2 lg:left-24">
+                {KAHVE_KATEGORILERI.map((_, index) => (
+                  <button
+                    key={`kat-dot-${index}`}
+                    type="button"
+                    onClick={() => scrollTo(index)}
+                    style={{
+                      height: 10,
+                      width: activeIndex === index ? 25 : 10,
+                      borderRadius: 5,
+                      border: "1px solid #1b1b1b",
+                      background: activeIndex === index ? "#1b1b1b" : "transparent",
+                      opacity: activeIndex === index ? 1 : 0.25,
+                      transition: "width 0.5s ease, opacity 0.5s ease, background 0.5s ease",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                    aria-label={`Adım ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* SAG: video'lar yatay kayan (sticky-images-and-text__aside horizontal) */}
+            <div className="relative w-1/2 shrink-0 overflow-hidden">
+              <div className="absolute inset-0 p-6 lg:p-8">
+                <div className="relative h-full w-full overflow-hidden bg-[#1b1b1b]">
+                  {/* Yatay rail */}
+                  <div
+                    className="flex h-full"
+                    style={{
+                      width: `${KAHVE_KATEGORILERI.length * 100}%`,
+                      transform: `translateX(-${(activeIndex / KAHVE_KATEGORILERI.length) * 100}%)`,
+                      transition: "transform 0.7s cubic-bezier(0.4, 0, 0.2, 1)",
+                    }}
+                  >
+                    {KAHVE_KATEGORILERI.map((step, index) => (
+                      <div
+                        key={`kat-img-${index}`}
+                        className="relative h-full shrink-0"
+                        style={{ width: `${100 / KAHVE_KATEGORILERI.length}%` }}
+                      >
+                        <img
+                          src={step.image}
+                          alt={step.title}
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
       </div>
-    </div>
+
+      {/* Mobil: yatay snap scroll kartlar */}
+      <section className="border-b border-[#1b1b1b]/10 bg-[#efe5d8] px-5 py-12 md:hidden">
+        <div className="mb-8">
+          <p className="mb-3 font-mono text-[0.6rem] tracking-[0.32em] text-[#C17A3A]">SEÇKİMİZ</p>
+          <h2 className="font-serif text-[clamp(1.8rem,6vw,2.8rem)] leading-[1.1] tracking-[-0.02em]">Her damak zevkine bir kahve.</h2>
+        </div>
+        <div className="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
+          {KAHVE_KATEGORILERI.map((step, index) => (
+            <article key={`kat-mob-${index}`} className="relative flex min-h-[380px] min-w-[82vw] snap-start flex-col justify-between overflow-hidden bg-[#1b1b1b] p-6 text-[#f7f0e7]">
+              <img src={step.image} alt={step.title} className="absolute inset-0 h-full w-full object-cover opacity-60" />
+              <div className="relative z-10 flex items-center justify-between">
+                <span className="font-sans text-[0.9rem] font-medium tracking-[0.2em] text-[#c38152]">{step.label}</span>
+                <span className="text-[2rem] font-light text-[#f7f0e7]/20">0{index + 1}</span>
+              </div>
+              <div className="relative z-10">
+                <h3 className="font-serif text-[clamp(2rem,7vw,3rem)] leading-[1.05] tracking-[-0.02em]">{step.title}</h3>
+                <p className="mt-4 font-sans font-light text-[0.9rem] leading-relaxed text-[#f7f0e7]/75">{step.text}</p>
+                <button onClick={() => navigate(step.path)} className="mt-6 w-max border-b border-[#f7f0e7]/60 pb-1 font-mono text-[0.62rem] tracking-[0.2em] transition-opacity hover:opacity-60">
+                  {step.cta} →
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </>
   );
-};
+}
 
-// ─── HOMEPAGE ─────────────────────────────────────────────────────────────────
-const CATEGORY_LABELS = ['Türk Kahvesi', 'Filtre Kahve', 'Espresso', 'Paketler'];
-const CATEGORY_IMAGE_MAP: Record<string, string> = {
-  'Türk Kahvesi': '/turkkahvesi.png',
-  'Filtre Kahve':  '/filtre.png',
-  'Espresso':      '/espresso.png',
-  'Paketler':      '/paket.png',
-};
+const REVIEWS = [
+  {
+    label: "Sayfa 1",
+    title: "Çok taze geldi",
+    text: "Uzun süredir reklamlarını görüyordum, sonunda sipariş verdim. Bir kaç gün önce kavrulmuş kahve gönderdiler. Harika!",
+    cta: "kahve keyfini katla",
+  },
+  {
+    label: "Sayfa 2",
+    title: "KAHVEMİ BULDUM",
+    text: "Kargoya verildiği gün öğütülmüş. Tadını çok sevdim, artık başka kahve denememe gerek kalmadı.",
+    cta: "KENDİ DENEYİMİNİ YAŞA",
+  },
+  {
+    label: "Sayfa 3",
+    title: "İÇİMİ ÇOK rahat",
+    text: "Uzun zamandır kullandığımız kahveyi değiştirip buradan aldık. Eşim ve ben çok sevdik, içimi çok rahat.",
+    cta: "KENDİ DENEYİMİNİ YAŞA",
+  },
+  {
+    label: "Sayfa 4",
+    title: "BA-YIL-DIM",
+    text: "Artık favorim A Roasting Lab. Çok hızlı gönderdiler hem de tadı inanılmaz.",
+    cta: "KENDİ DENEYİMİNİ YAŞA",
+  },
+  {
+    label: "Sayfa 5",
+    title: "HERKESE ÖNERİYORUM",
+    text: "Genelde çoklu setlerinden alıyorum ve sürekli farklı kahveler içmiş oluyorum. Hepsi çok lezzetli. Bütün arkadaşlarıma öneriyorum.",
+    cta: "KENDİ DENEYİMİNİ YAŞA",
+  },
+];
 
-const FAQ_DATA = [
-  { question: "Siparişler ne zaman kargolanır?", answer: "Siparişleriniz, kahvenizin en taze haliyle size ulaşması için kavrum gününü takip eden 2 iş günü içerisinde özenle paketlenerek kargoya verilir." },
-  { question: "Hangi kargo şirketi ile çalışıyorsunuz?", answer: "Hızlı ve güvenli teslimat için Yurtiçi Kargo ile çalışmaktayız. Ankara içi özel durumlarda kurye seçeneğimiz de mevcuttur." },
-  { question: "Kahveler ne sıklıkla kavruluyor?", answer: "Atölyemizde haftalık planlı kavrumlar yapıyoruz. Böylece elinize her zaman zirve notasında, demlenmeye hazır taze kahveler ulaşır." },
-  { question: "Ekipmanıma göre öğütme yapıyor musunuz?", answer: "Evet, sipariş aşamasında demleme yönteminizi (V60, French Press, Espresso vb.) seçerseniz, çekirdeklerinizi o ekipmana en uygun derecede öğüterek gönderiyoruz." },
-  { question: "İade politikanız nedir?", answer: "Gıda ürünü olması sebebiyle, ambalajı açılmış kahvelerde iade kabul edemiyoruz. Ancak kargo kaynaklı hasarlarda yenisini hemen gönderiyoruz." },
-  { question: "Toptan kahve alımı yapabilir miyiz?", answer: "Elbette. Kafe, ofis veya restoranınız için toptan alım ve kurumsal işbirlikleri için iletişim sayfamızdan bize ulaşabilirsiniz." }
+const REVIEW_VIDEOS = [
+  "https://cdn.shopify.com/videos/c/o/v/44fe10bbe5bd407c8d67f6fc89f04862.mp4",
+  "https://cdn.shopify.com/videos/c/o/v/c8e3e4f097d94cadbea726b2ba861e44.mp4",
+  "https://cdn.shopify.com/videos/c/o/v/49dcfbb679ff4958a9e439e68bd426e8.mp4",
+  "https://cdn.shopify.com/videos/c/o/v/bca8e29d7ac2421d94defc070811b3aa.mp4",
+  "https://cdn.shopify.com/videos/c/o/v/eb53979c712e478a81536fbb77602f2f.mp4",
+];
+
+
+// ─── INSTAGRAM SECTION ────────────────────────────────────────────────────────
+// Behold.so widget ID — behold.so adresinden alınan widget ID'sini buraya girin
+const BEHOLD_WIDGET_ID = "2Bq1roFMFrVyL89Ztq1C";
+
+function InstagramSection() {
+  const instagramReveal = useReveal();
+  const widgetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = widgetRef.current;
+    if (!container) return;
+
+    container.innerHTML = `<behold-widget feed-id="${BEHOLD_WIDGET_ID}"></behold-widget>`;
+
+    const existingScript = document.querySelector('script[src="https://w.behold.so/widget.js"]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+    const script = document.createElement("script");
+    script.src = "https://w.behold.so/widget.js";
+    script.type = "module";
+    document.head.appendChild(script);
+  }, []);
+
+  return (
+    <section className="border-t border-[#1b1b1b]/10 bg-[#f7f0e7] px-5 py-16 md:px-10 md:py-24">
+      <div
+        ref={instagramReveal.ref}
+        className={`mx-auto max-w-[1500px] transition-all duration-1000 ${instagramReveal.visible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"}`}
+      >
+        {/* Başlık — diğer section'larla aynı sol hizalı grid yapısı */}
+        <div className="mb-10 grid gap-6 md:grid-cols-[1fr_auto] md:items-end">
+          <div>
+            <p className="mb-3 font-mono text-[0.75rem] tracking-[0.28em] text-[#C17A3A]">SOSYAL MEDYADA BİZ</p>
+            <h2 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.1] tracking-[-0.02em] text-[#1b1b1b]">
+              Instagram'da bize katıl
+            </h2>
+          </div>
+          <a
+            href="https://www.instagram.com/editioncoffeeroastery"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-max border-b border-[#1b1b1b] pb-1 font-mono text-[0.62rem] tracking-[0.2em] text-[#1b1b1b] transition-opacity hover:opacity-60"
+          >
+            @editioncoffeeroastery →
+          </a>
+        </div>
+
+        {/* Widget — max genişlik kısıtlı ve ortalanmış */}
+        <div className="mx-auto max-w-[960px]">
+          <div ref={widgetRef} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const heroSlides = [
+  { title: "Türk Kahvesi", subtitle: "GELENEKSEL & NİTELİKLİ", image: "https://plus.unsplash.com/premium_photo-1732818135469-3bfc10ed83a2?w=900&auto=format&fit=crop&q=60", link: "/kahveler?kategori=turk-kahvesi" },
+  { title: "Filtre Kahve", subtitle: "DEMLEME PROFİLLERİ", image: "https://images.unsplash.com/photo-1638202518327-956c496a5240?w=900&auto=format&fit=crop&q=60", link: "/kahveler?kategori=filtre" },
+  { title: "Espresso", subtitle: "YOĞUN & GÖVDELİ", image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?q=80&w=2000&auto=format&fit=crop", link: "/kahveler?kategori=espresso" },
+  { title: "Avantajlı Paketler", subtitle: "ÖZEL SEÇKİLER", image: "https://images.unsplash.com/photo-1559525839-b184a4d698c7?q=80&w=2000&auto=format&fit=crop", link: "/kahveler?kategori=paket" },
 ];
 
 export default function Anasayfa() {
   const { addToCart } = useCart();
+  const navigate = useNavigate();
   const [isPageLoaded, setIsPageLoaded] = useState(false);
-  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
-  const [autoCycleCategory, setAutoCycleCategory] = useState<string>(CATEGORY_LABELS[0]);
-  const [activeTab, setActiveTab] = useState<string>('Filtre Kahve');
-  
-  const hoveredRef = useRef<string | null>(null);
-  const heroRef = useRef<HTMLElement>(null);
-  const beansCanvasRef = useRef<HTMLCanvasElement>(null);
-
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [activeProductTab, setActiveProductTab] = useState<string>("ESPRESSO");
+  const [quickAddHandle, setQuickAddHandle] = useState<string | null>(null);
   const [allProducts, setAllProducts] = useState<CoffeeProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Reveal Hooks
-  const shopReveal = useReveal();
+  const reviewsStickyRef = useRef<HTMLDivElement>(null);
+  const reviewsProgress = useScrollProgress(reviewsStickyRef);
+  const activeReviewIndex = Math.min(
+    REVIEWS.length - 1,
+    Math.max(0, Math.floor(reviewsProgress * REVIEWS.length))
+  );
+
+  const featuredReveal = useReveal();
+  const tabsReveal = useReveal();
   const storyReveal = useReveal();
 
-  // Scroll-driven picks
-  const picksContainerRef = useRef<HTMLDivElement>(null);
-  const picksProgress = useScrollProgress(picksContainerRef);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % heroSlides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setIsPageLoaded(true);
@@ -246,504 +729,269 @@ export default function Anasayfa() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Otomatik kategori geçişi (Hero için)
-  useEffect(() => {
-    let idx = 0;
-    const interval = setInterval(() => {
-      if (!hoveredRef.current) {
-        idx = (idx + 1) % CATEGORY_LABELS.length;
-        setAutoCycleCategory(CATEGORY_LABELS[idx]);
-      }
-    }, 2800);
-    return () => clearInterval(interval);
-  }, []);
+  const tabProducts = allProducts.filter((p) => {
+    const filter =
+      activeProductTab === "TÜRK KAHVESİ" ? "turk-kahvesi" :
+      activeProductTab === "FİLTRE" ? "filtre" :
+      "espresso";
+    return p.category.some((t) => t.toLowerCase().includes(filter));
+  });
 
-  // Matter.js kahve çekirdeği fiziği
-  useEffect(() => {
-    const section = heroRef.current;
-    const canvas  = beansCanvasRef.current;
-    if (!section || !canvas) return;
-
-    let { width, height } = section.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-
-    const resizeCanvas = (w: number, h: number) => {
-      canvas.width  = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width  = `${w}px`;
-      canvas.style.height = `${h}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-
-    const ctx = canvas.getContext('2d')!;
-    resizeCanvas(width, height);
-
-    const engine = Matter.Engine.create({ gravity: { x: 0, y: 2 } });
-
-    const floor = Matter.Bodies.rectangle(width / 2, height + 25, width * 3, 50, { isStatic: true, friction: 0.9, restitution: 0.1 });
-    const wallL = Matter.Bodies.rectangle(-25, height / 2, 50, height * 3, { isStatic: true });
-    const wallR = Matter.Bodies.rectangle(width + 25, height / 2, 50, height * 3, { isStatic: true });
-    Matter.Composite.add(engine.world, [floor, wallL, wallR]);
-
-    const ro = new ResizeObserver(entries => {
-      const r   = entries[0].contentRect;
-      const newW = r.width;
-      const newH = r.height;
-
-      resizeCanvas(newW, newH);
-      Matter.Body.setPosition(floor, { x: newW / 2,  y: newH + 25 });
-      Matter.Body.setPosition(wallL, { x: -25,        y: newH / 2  });
-      Matter.Body.setPosition(wallR, { x: newW + 25, y: newH / 2  });
-
-      beans.forEach(bean => {
-        const br = (bean as any).circleRadius ?? 14;
-        const clampedX = Math.max(br + 5, Math.min(newW - br - 5, bean.position.x));
-        const clampedY = Math.min(bean.position.y, newH - br - 8);
-        Matter.Body.setPosition(bean, { x: clampedX, y: clampedY });
-        Matter.Body.setVelocity(bean, {
-          x: (Math.random() - 0.5) * 4,
-          y: -(8 + Math.random() * 10),
-        });
-      });
-
-      width  = newW;
-      height = newH;
-    });
-    ro.observe(section);
-
-    const mouse = Matter.Mouse.create(section);
-    section.removeEventListener('wheel',      (mouse as any).mousewheel);
-    section.removeEventListener('touchstart', (mouse as any).mousedown);
-    section.removeEventListener('touchmove',  (mouse as any).mousemove);
-    const mc = Matter.MouseConstraint.create(engine, {
-      mouse,
-      constraint: { stiffness: 0.14, render: { visible: false } },
-    });
-    Matter.Composite.add(engine.world, mc);
-
-    const beans: Matter.Body[] = [];
-    const timeouts: ReturnType<typeof setTimeout>[] = [];
-    const BEAN_COUNT = window.innerWidth >= 768 ? 48 : 26;
-
-    for (let i = 0; i < BEAN_COUNT; i++) {
-      const t = setTimeout(() => {
-        const x = 80 + Math.random() * (width - 160);
-        const y = -(30 + Math.random() * 100);
-        const r = 10 + Math.random() * 8;
-        const bean = Matter.Bodies.circle(x, y, r, {
-          restitution: 0.18,
-          friction: 0.7,
-          frictionAir: 0.008,
-          density: 0.003,
-          angle: Math.random() * Math.PI * 2,
-        });
-        Matter.Body.setVelocity(bean, { x: (Math.random() - 0.5) * 5, y: 2 + Math.random() * 3 });
-        Matter.Body.setAngularVelocity(bean, (Math.random() - 0.5) * 0.4);
-        Matter.Composite.add(engine.world, bean);
-        beans.push(bean);
-      }, i * 160 + Math.random() * 80);
-      timeouts.push(t);
-    }
-
-    const drawBean = (x: number, y: number, r: number, angle: number) => {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, r * 0.72, r, 0, 0, Math.PI * 2);
-      ctx.fillStyle = '#7B4528';
-      ctx.fill();
-      ctx.strokeStyle = '#3E1E0A';
-      ctx.lineWidth = 0.9;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, -r * 0.88);
-      ctx.bezierCurveTo(-r * 0.38, -r * 0.22, -r * 0.38, r * 0.22, 0, r * 0.88);
-      ctx.strokeStyle = '#3E1E0A';
-      ctx.lineWidth = 1.1;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, -r * 0.88);
-      ctx.bezierCurveTo(r * 0.38, -r * 0.22, r * 0.38, r * 0.22, 0, r * 0.88);
-      ctx.stroke();
-      ctx.restore();
-    };
-
-    const mousePos = { x: -9999, y: -9999 };
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = section.getBoundingClientRect();
-      mousePos.x = e.clientX - rect.left;
-      mousePos.y = e.clientY - rect.top;
-    };
-    section.addEventListener('mousemove', onMouseMove);
-    section.addEventListener('mouseleave', () => { mousePos.x = -9999; mousePos.y = -9999; });
-
-    const REPEL_RADIUS = 90;
-    const REPEL_FORCE  = 0.006;
-
-    let raf: number;
-    const loop = () => {
-      Matter.Engine.update(engine, 1000 / 60);
-      beans.forEach(b => {
-        const dx = b.position.x - mousePos.x;
-        const dy = b.position.y - mousePos.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < REPEL_RADIUS && dist > 1) {
-          const strength = REPEL_FORCE * (1 - dist / REPEL_RADIUS);
-          Matter.Body.applyForce(b, b.position, {
-            x: (dx / dist) * strength,
-            y: (dy / dist) * strength,
-          });
-        }
-      });
-      ctx.clearRect(0, 0, width, height);
-      beans.forEach(b => drawBean(b.position.x, b.position.y, (b as any).circleRadius ?? 14, b.angle));
-      raf = requestAnimationFrame(loop);
-    };
-    loop();
-
-    return () => {
-      cancelAnimationFrame(raf);
-      timeouts.forEach(clearTimeout);
-      section.removeEventListener('mousemove', onMouseMove);
-      ro.disconnect();
-      Matter.Engine.clear(engine);
-      Matter.Composite.clear(engine.world, false);
-    };
-  }, []);
-
-  const heroCategories = [
-    { label: 'Türk Kahvesi', link: '/kahveler?kategori=turk-kahvesi', icon: <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M8 10h16l-2 13H10Z"/><path d="M24 13h3a2 2 0 0 1 0 4h-3"/><path d="M12 7c0-2 2-2 2-4"/><path d="M16 7c0-2 2-2 2-4"/><path d="M6 25h20"/></svg> },
-    { label: 'Filtre Kahve', link: '/kahveler?kategori=filtre', icon: <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M7 6h18l-6 12H13Z"/><path d="M13 18v7h6v-7"/><path d="M11 25h10"/></svg> },
-    { label: 'Espresso', link: '/kahveler?kategori=espresso', icon: <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="13" width="14" height="10" rx="1"/><path d="M23 17h2a2 2 0 0 1 0 4h-2"/><path d="M9 8h14v5H9z"/><path d="M7 25h18"/><path d="M13 5v3"/><path d="M19 5v3"/></svg> },
-    { label: 'Paketler', link: '/kahveler?kategori=paket', icon: <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M6 12l10-6 10 6v13l-10 6-10-6Z"/><path d="M16 6v19"/><path d="M6 12l10 6 10-6"/></svg> },
-  ];
-
-  const displayCategory = hoveredCategory || autoCycleCategory;
-
-  // Dükkan sekmesi için aktif ürünleri filtreleme
-  const tabFilterMap: Record<string, string> = {
-    'Türk Kahvesi': 'turk-kahvesi',
-    'Filtre Kahve': 'filtre',
-    'Espresso': 'espresso',
-    'Paketler': 'paket'
-  };
-  
-  const activeProducts = allProducts.filter(p => 
-    p.category.some(t => t.toLowerCase().includes(tabFilterMap[activeTab]))
-  );
+  const featuredProducts = allProducts.slice(0, 4);
 
   return (
-    <div className="bg-[#FDFAF6] text-[#000000] min-h-screen font-sans selection:bg-[#1A0F08] selection:text-[#FAF6EF]">
+    <div className="-mt-[130px] min-h-screen bg-[#f7f0e7] font-sans text-[#1b1b1b] selection:bg-[#1b1b1b] selection:text-[#f7f0e7]">
       <style>{`
-        @keyframes tickerRun { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        .animate-ticker { animation: tickerRun 35s linear infinite; display: inline-flex; }
-        .animate-ticker:hover { animation-play-state: paused; }
-        @keyframes heroCatDrop { from { opacity: 0; transform: translateY(-140px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes gradientMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        .animate-gradient-bg { background: linear-gradient(-45deg, #1A0F08, #2a160c, #1A0F08, #180d07); background-size: 400% 400%; animation: gradientMove 12s ease infinite; }
-        
-        /* Gizli Scrollbar Sınıfı */
+        @keyframes arlMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .arl-marquee { animation: arlMarquee 34s linear infinite; }
+        .arl-marquee:hover { animation-play-state: paused; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      {/* ─── 1. HERO + TICKER ─── */}
-      <div className="flex flex-col h-[calc(100vh-130px)]">
-        <section ref={heroRef as React.RefObject<HTMLElement>} className="relative w-full flex-1 min-h-0 bg-[#F5EEE6] overflow-hidden flex items-center border-b border-[#E5D8C5]">
-          <canvas ref={beansCanvasRef} className="absolute inset-0 z-30 pointer-events-none" />
-          <div className="absolute inset-0 flex items-center justify-start pl-6 md:pl-10 pointer-events-none select-none overflow-hidden z-10">
-            <span className="font-serif text-[clamp(6rem,16vw,18rem)] text-[#000000]/[0.04] leading-none tracking-[-0.04em] whitespace-nowrap">
-              EDITION
-            </span>
-          </div>
-          <div className="absolute right-[10%] top-1/2 -translate-y-1/2 w-[600px] h-[600px] md:w-[780px] md:h-[780px] rounded-full bg-gradient-to-br from-[#E8D5BF] to-[#C9A87A] pointer-events-none opacity-60" />
-          
-          <div className="relative z-20 w-full max-w-[1440px] mx-auto px-6 md:px-10 py-4 md:py-0 flex items-center h-full">
-            <div className="w-full grid grid-cols-[1fr_auto] md:grid-cols-[1fr_1fr_auto] items-center gap-4 md:gap-6 lg:gap-16">
-              
-              <div className={`col-span-2 md:col-span-1 flex flex-col gap-4 md:gap-7 transition-all duration-[1000ms] ease-out ${isPageLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-                <div className="font-mono text-[0.5rem] tracking-[0.35em] uppercase text-[#C17A3A] flex items-center gap-2.5">
-                  <span className="block w-5 h-[1px] bg-[#C17A3A]" />
-                  Ankara · Taze Kavrum
-                </div>
-                <h1 className="font-serif text-[clamp(3rem,7vw,6.5rem)] leading-[0.95] tracking-[-0.03em] text-[#1A0F08]">
-                  Gerçek Kahve,<br />
-                  <em className="italic text-[#C17A3A]">Gerçek Lezzet.</em>
-                </h1>
-                <p className="font-sans font-light text-[0.92rem] leading-[1.85] text-[#6B5A4E] max-w-[360px]">
-                  Siparişiniz üzerine taze kavrulmuş, nitelikli çekirdekler. Her fincan, özenle seçilmiş menşeilerden hazırlanır.
-                </p>
-                <div className={`flex items-center gap-4 transition-all duration-[1000ms] delay-300 ease-out ${isPageLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-                  <button onClick={() => document.getElementById('dukkan')?.scrollIntoView({ behavior: 'smooth' })}
-                     className="inline-flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase bg-[#1A0F08] text-[#FAF6EF] pl-6 pr-2 py-2 rounded-full transition-colors hover:bg-[#2D1A0E]">
-                    Seçkiyi Keşfet
-                    <span className="w-8 h-8 rounded-full bg-[#C17A3A] flex items-center justify-center shrink-0">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 8h10M9 4l4 4-4 4"/>
-                      </svg>
-                    </span>
-                  </button>
-                </div>
-              </div>
+      {/* 1. SLIDESHOW / HERO */}
+      <section className="relative min-h-screen overflow-hidden border-b border-[#1b1b1b]/10 bg-[#1b1b1b] text-[#f7f0e7]">
+        {heroSlides.map((slide, i) => (
+          <img
+            key={i}
+            src={slide.image}
+            alt={slide.title}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${i === activeSlide ? 'opacity-80' : 'opacity-0'}`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1b1b1b]/80 via-[#1b1b1b]/25 to-transparent" />
 
-              <div className="relative flex items-center justify-center">
-                <div className="w-[240px] h-[240px] sm:w-[300px] sm:h-[300px] md:w-[440px] md:h-[440px] rounded-full bg-[#E4D8CC] transition-colors duration-500" />
-                <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-full">
-                  <img
-                    key={displayCategory}
-                    src={CATEGORY_IMAGE_MAP[displayCategory] ?? 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=800&auto=format&fit=crop&q=80'}
-                    alt={displayCategory}
-                    className="w-full h-full object-contain drop-shadow-2xl"
-                    style={{ animation: 'heroCatDrop 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
-                  />
-                </div>
-                <div className="absolute bottom-4 right-4 md:bottom-6 md:right-0 w-20 h-20 md:w-24 md:h-24 animate-[spin_20s_linear_infinite]">
-                  <svg viewBox="0 0 100 100" className="w-full h-full opacity-40">
-                    <defs>
-                      <path id="circle-text" d="M 50,50 m -37,0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0"/>
-                    </defs>
-                    <text className="font-mono" fontSize="10.5" fill="#C17A3A" letterSpacing="3">
-                      <textPath href="#circle-text">EDITION COFFEE · ANKARA · TAZE KAVRUM ·</textPath>
-                    </text>
-                  </svg>
-                </div>
-              </div>
+        {/* Mobil: sol/sağ ok butonları */}
+        <button
+          onClick={() => setActiveSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
+          className="absolute left-4 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 items-center justify-center border border-[#f7f0e7]/30 bg-[#1b1b1b]/20 text-[#f7f0e7] backdrop-blur-sm transition-all hover:bg-[#1b1b1b]/50 md:hidden"
+          aria-label="Önceki"
+        >
+          ‹
+        </button>
+        <button
+          onClick={() => setActiveSlide((prev) => (prev + 1) % heroSlides.length)}
+          className="absolute right-4 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 items-center justify-center border border-[#f7f0e7]/30 bg-[#1b1b1b]/20 text-[#f7f0e7] backdrop-blur-sm transition-all hover:bg-[#1b1b1b]/50 md:hidden"
+          aria-label="Sonraki"
+        >
+          ›
+        </button>
 
-              <div className={`relative flex flex-col gap-4 md:gap-7 justify-center md:justify-start -translate-x-3 -translate-y-10 transition-all duration-[1000ms] delay-300 ease-out ${isPageLoaded ? 'opacity-100' : 'opacity-0 translate-x-6'}`}>
-                {heroCategories.map((cat) => {
-                  const isActive = displayCategory === cat.label;
-                  return (
-                    <div key={cat.label}
-                      className="flex flex-col items-center gap-2 group cursor-pointer"
-                      onClick={() => {
-                        setActiveTab(cat.label);
-                        document.getElementById('dukkan')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      onMouseEnter={() => { hoveredRef.current = cat.label; setHoveredCategory(cat.label); }}
-                      onMouseLeave={() => { hoveredRef.current = null; setHoveredCategory(null); }}
-                    >
-                      <span className={`w-14 h-14 md:w-16 md:h-16 rounded-full border flex items-center justify-center transition-all duration-300
-                        ${isActive
-                          ? 'bg-[#1A0F08] border-[#1A0F08] text-[#FAF6EF] scale-110 shadow-[0_6px_24px_rgba(26,15,8,0.28)]'
-                          : 'bg-[#EDE3D8] border-[#D8C8B4] text-[#7B4528] group-hover:bg-[#1A0F08] group-hover:text-[#FAF6EF] group-hover:border-[#1A0F08] group-hover:scale-105'
-                        }`}>
-                        {cat.icon}
-                      </span>
-                      <span className={`font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.12em] uppercase text-center transition-colors duration-300
-                        ${isActive ? 'text-[#1A0F08] font-semibold' : 'text-[#9E8E7E] group-hover:text-[#1A0F08]'}`}>
-                        {cat.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="relative py-3.5 md:py-4 overflow-hidden whitespace-nowrap border-y border-[#3E2B1E] animate-gradient-bg shadow-[inset_0_0_20px_rgba(0,0,0,0.6)]">
-          <div className="animate-ticker flex items-center cursor-default">
-            {[...Array(2)].map((_, ri) => (
-              <span key={ri} className="flex items-center">
-                {["%100 Arabica", "80+ Q-Grader Puanı", "Siparişe Özel Kavrum", "Özel Harmanlar", "Ankara Merkezli", "Erişilebilir Kalite", "Taze Teslimat", "Uzman Profiller"].map((t, i) => (
-                  <span key={i} className="flex items-center font-mono text-[0.55rem] md:text-[0.65rem] tracking-[0.2em] uppercase text-[#FAF6EF]/90 px-4">
-                    {t}
-                    <svg className="w-3 h-3 text-[#C17A3A] animate-[spin_4s_linear_infinite] ml-8 md:ml-12 mr-4 md:mr-8 opacity-80" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2l2.4 7.6 7.6 2.4-7.6 2.4L12 22l-2.4-7.6-7.6-2.4 7.6-2.4L12 2z" />
-                    </svg>
-                  </span>
-                ))}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ─── 2. SİZİN İÇİN SEÇTİKLERİMİZ ─── */}
-      <div ref={picksContainerRef} style={{ height: '350vh' }} className="border-b border-[#E5D8C5]">
-        <section className="sticky top-0 h-screen bg-[#F5EEE6] overflow-hidden">
-
-          {/* Content */}
-          <div className="h-full flex flex-col max-w-[1440px] mx-auto w-full px-4 md:px-10" style={{ paddingTop: '154px', paddingBottom: '24px' }}>
-
-            {/* Header — dükkan bölümüyle aynı stil */}
-            <div className="text-center mb-8 md:mb-10 shrink-0">
-              <p className="font-mono text-[0.5rem] tracking-[0.3em] uppercase text-[#9E8E7E] mb-3">Öne Çıkanlar</p>
-              <h2 className="font-serif text-[clamp(2rem,4vw,3.5rem)] text-[#1A0F08] leading-none">
-                Sizin İçin <em className="italic text-[#C17A3A]">Seçtiklerimiz</em>
-              </h2>
-            </div>
-
-            {/* Product grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-8 md:gap-x-7 items-start">
-              {loading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i}><SkeletonCard /></div>
-                ))
-              ) : (
-                allProducts.slice(0, 4).map((p, idx) => {
-                  const SETTLE = [0.24, 0.46, 0.68, 0.90][idx];
-                  const RANGE = 0.18;
-                  const t = Math.max(0, Math.min(1, (picksProgress - (SETTLE - RANGE)) / RANGE));
-                  return (
-                    <div
-                      key={`picks-${p.id}`}
-                      className="w-full"
-                      style={{
-                        opacity: t,
-                        transform: `translateY(${-80 * (1 - t)}px)`,
-                        transition: 'none',
-                      }}
-                    >
-                      <ProductCard p={p} onAdd={addToCart} />
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Bottom progress dots */}
-            <div
-              className="shrink-0 flex items-center justify-center gap-2 pt-5"
-              style={{ opacity: picksProgress > 0.10 ? 1 : 0, transition: 'opacity 0.6s ease' }}
+        {/* İçerik: mobilde orta-alt, masaüstünde sol-alt */}
+        <div className="relative z-10 flex min-h-screen flex-col">
+          <div className={`mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-center justify-end px-5 pb-20 text-center md:items-start md:justify-end md:px-10 md:pb-16 md:text-left lg:px-14 transition-all duration-1000 ${isPageLoaded ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
+            <p className="mb-4 font-mono text-[0.62rem] tracking-[0.34em] text-[#f7f0e7]/60 transition-all duration-700">
+              {heroSlides[activeSlide].subtitle}
+            </p>
+            <h1 className="font-serif text-[clamp(2.4rem,5vw,4.8rem)] leading-[1.05] tracking-[-0.02em] transition-all duration-700">
+              {heroSlides[activeSlide].title}
+            </h1>
+            <button
+              onClick={() => navigate(heroSlides[activeSlide].link)}
+              className="mt-8 border border-[#f7f0e7]/60 px-8 py-4 font-mono text-[0.62rem] tracking-[0.22em] text-[#f7f0e7] transition-all hover:bg-[#f7f0e7] hover:text-[#1b1b1b]"
             >
-              {[0, 1, 2, 3].map(i => {
-                const settled = picksProgress >= [0.24, 0.46, 0.68, 0.90][i];
-                return (
-                  <span key={i} className="block rounded-full transition-all duration-300" style={{
-                    width: settled ? '16px' : '6px',
-                    height: '6px',
-                    backgroundColor: settled ? '#C17A3A' : 'rgba(193,122,58,0.25)',
-                  }} />
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* ─── 3. DÜKKAN (KAYDIRILABİLİR KATEGORİLER) ─── */}
-      <section id="dukkan" className="bg-[#F5EEE6] border-b border-[#E5D8C5] overflow-hidden scroll-mt-20">
-        <div ref={shopReveal.ref} className={`max-w-[1440px] mx-auto pt-16 md:pt-24 pb-16 md:pb-24 transition-all duration-[1000ms] ease-out ${shopReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
-          
-          {/* Ortalanmış Başlık ve Sekmeler */}
-          <div className="px-4 md:px-10 flex flex-col items-center text-center justify-center mb-10 md:mb-14 gap-6 md:gap-8">
-            <div>
-              <p className="font-mono text-[0.5rem] tracking-[0.3em] uppercase text-[#9E8E7E] mb-3">Koleksiyon</p>
-              <h2 className="font-serif text-[clamp(2rem,4vw,3.5rem)] text-[#1A0F08] leading-none">
-                Kahve <em className="italic text-[#C17A3A]">Dükkanı</em>
-              </h2>
-            </div>
-
-            {/* Tab Butonları (Başlığın Altında Ortalanmış) */}
-            <div className="flex flex-wrap justify-center gap-2 md:gap-4">
-              {CATEGORY_LABELS.map(tab => (
-                <button 
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`font-mono text-[0.6rem] tracking-[0.15em] uppercase px-6 py-3 rounded-full transition-all duration-300 ${
-                    activeTab === tab 
-                    ? 'bg-[#1A0F08] text-[#FAF6EF]' 
-                    : 'border border-[#D8C8B4] text-[#7B4528] hover:border-[#1A0F08] hover:text-[#1A0F08]'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+              KEŞFET
+            </button>
           </div>
 
-          {/* Scrollable Container */}
-          <div className="w-full overflow-hidden pl-4 md:pl-10">
-            <div className="flex overflow-x-auto gap-6 pb-10 pt-4 snap-x snap-mandatory scrollbar-hide pr-10">
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => <div key={i} className="snap-start"><SkeletonCard /></div>)
-              ) : activeProducts.length > 0 ? (
-                activeProducts.map((p) => (
-                  <div key={`shop-${p.id}`} className="min-w-[260px] md:min-w-[300px] max-w-[300px] snap-start shrink-0">
-                    <ProductCard p={p} onAdd={addToCart} />
-                  </div>
-                ))
-              ) : (
-                <div className="w-full flex items-center justify-center py-20 text-[#9E8E7E] font-mono text-sm tracking-widest uppercase">
-                  Bu kategoride ürün bulunamadı.
-                </div>
-              )}
-            </div>
+          {/* Masaüstü: noktalar orta-alt */}
+          <div className="hidden md:flex absolute bottom-10 left-1/2 -translate-x-1/2 items-center gap-3">
+            {heroSlides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveSlide(i)}
+                className={`transition-all duration-300 rounded-full ${i === activeSlide ? 'w-6 h-1.5 bg-[#f7f0e7]' : 'w-1.5 h-1.5 bg-[#f7f0e7]/40 hover:bg-[#f7f0e7]/70'}`}
+              />
+            ))}
           </div>
-        </div>
-      </section>
 
-      {/* ─── 4. BİLGİ ŞERİDİ (FEATURES BANNER) ─── */}
-      <section className="bg-[#1A0F08] py-16 md:py-20 border-y border-[#1A0F08]">
-        <div className="max-w-[1440px] mx-auto px-6 md:px-10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-10 gap-x-4 md:gap-6 md:divide-x divide-[#3E2B1E]">
-            {[
-              { title: "HEP TAZE", subtitle: "Haftalık kavrulur" },
-              { title: "ÖZEL ÖĞÜTME", subtitle: "Tam istediğin gibi" },
-              { title: "ZENGİN AROMA", subtitle: "Tadı damağında" },
-              { title: "DİKKAT!", subtitle: "Bağımlılık yapar" }
-            ].map((feat, i) => (
-              <div key={i} className="flex flex-col items-center text-center">
-                <h4 className="font-serif text-lg sm:text-xl md:text-2xl text-[#C17A3A] mb-2">{feat.title}</h4>
-                <p className="font-mono text-[0.55rem] sm:text-[0.6rem] md:text-[0.65rem] tracking-[0.1em] md:tracking-[0.2em] uppercase text-[#FAF6EF]/60">{feat.subtitle}</p>
-              </div>
+          {/* Mobil: noktalar içerik altında */}
+          <div className="flex md:hidden absolute bottom-6 left-1/2 -translate-x-1/2 items-center gap-3">
+            {heroSlides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveSlide(i)}
+                className={`transition-all duration-300 rounded-full ${i === activeSlide ? 'w-6 h-1.5 bg-[#f7f0e7]' : 'w-1.5 h-1.5 bg-[#f7f0e7]/40 hover:bg-[#f7f0e7]/70'}`}
+              />
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── 5. SIKÇA SORULAN SORULAR (FAQ) ─── */}
-      <section className="bg-[#FDFAF6] border-b border-[#E5E5E5]">
-        <div className="max-w-[1440px] mx-auto px-4 md:px-10 pt-16 md:pt-24 pb-16 md:pb-24">
-          <div className="text-center mb-12 md:mb-16">
-            <p className="font-mono text-[0.5rem] tracking-[0.3em] uppercase text-[#9E8E7E] mb-3">Merak Ettikleriniz</p>
-            <h2 className="font-serif text-[clamp(2rem,3.5vw,3rem)] text-[#1A0F08] leading-none">
-              Sıkça Sorulan <em className="italic text-[#C17A3A]">Sorular</em>
+      {/* 2. MARQUEE */}
+      <div className="overflow-hidden whitespace-nowrap border-b border-[#1b1b1b]/10 bg-white py-4 text-[#1b1b1b]">
+        <div className="arl-marquee inline-flex items-center">
+          {[...Array(2)].map((_, repeatIndex) => (
+            <span key={repeatIndex} className="inline-flex items-center">
+              {[
+                "2019'DAN BERİ 100,000+ MUTLU KAHVESEVERİN TERCİHİ",
+                "SİPARİŞİNİZE ÖZEL TAZE KAVRUM",
+                "850 TL VE ÜZERİ SİPARİŞLERDE ÜCRETSİZ KARGO",
+                "TÜRK KAHVESİ · FİLTRE · ESPRESSO",
+                "AYNI GÜN KARGOYA VERİLİR",
+                "100% ARABİCA, TEK KÖKEN VE HARMANLAR",
+                "ANKARA'DAN TÜM TÜRKİYE'YE",
+              ].map((text, i) => (
+                <span key={i} className="inline-flex items-center px-8 font-mono text-[0.72rem] tracking-[0.24em] md:text-[0.82rem]">
+                  {text}
+                  <span className="ml-8 h-1.5 w-1.5 rounded-full bg-[#C17A3A]" />
+                </span>
+              ))}
+            </span>
+          ))}
+        </div>
+      </div>
+
+
+      {/* 4. FEATURED COLLECTION */}
+      <section className="border-b border-[#1b1b1b]/10 bg-[#f7f0e7] px-5 py-16 md:px-10 md:py-24">
+        <div ref={featuredReveal.ref} className={`mx-auto max-w-[1500px] transition-all duration-1000 ${featuredReveal.visible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"}`}>
+          <div className="mb-10 grid gap-6 md:grid-cols-[1fr_auto] md:items-end">
+            <div>
+              <p className="mb-3 font-mono text-[0.75rem] tracking-[0.28em] text-[#C17A3A]">HERKESİN BAYILDIĞI</p>
+              <h2 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.1] tracking-[-0.02em] text-[#1b1b1b]">
+                En çok tercih edilenler<br className="hidden md:block" /> 
+              </h2>
+            </div>
+            <button
+              onClick={() => navigate("/kahveler")}
+              className="w-max border-b border-[#1b1b1b] pb-1 font-mono text-[0.62rem] tracking-[0.2em] text-[#1b1b1b] transition-opacity hover:opacity-60"
+            >
+              HEPSİNİ GÖR →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6 xl:gap-8">
+            {loading
+              ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+              : featuredProducts.map((p) => <ProductCard key={`featured-${p.id}`} p={p} onQuickAdd={(prod) => setQuickAddHandle(prod.handle)} />)}
+          </div>
+        </div>
+      </section>
+
+
+
+      {/* 6. KAHVE KATEGORİLERİ */}
+      <KahveKategorileriSection />
+
+      {/* 7. TAB COLLECTIONS */}
+      <section id="dukkan" className="scroll-mt-20 border-b border-[#1b1b1b]/10 bg-[#f7f0e7] px-5 py-16 md:px-10 md:py-24">
+        <div ref={tabsReveal.ref} className={`mx-auto max-w-[1500px] transition-all duration-1000 ${tabsReveal.visible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"}`}>
+          {/* Başlık */}
+          <div className="mb-8">
+            <p className="mb-3 font-mono text-[0.75rem] tracking-[0.28em] text-[#C17A3A]">HANGİ PAKETİ İSTERSEN!</p>
+            <h2 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.1] tracking-[-0.02em] text-[#1b1b1b]">
+              Demleme yöntemine uygun kahveyi seç.
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-4 md:gap-y-8">
-            {FAQ_DATA.map((faq, index) => (
-              <FaqItem key={index} question={faq.question} answer={faq.answer} />
+          {/* Kategori butonları — ortalanmış */}
+          <div className="mb-10 flex flex-wrap justify-center gap-2">
+            {PRODUCT_CATEGORY_LABELS.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveProductTab(tab)}
+                className={`border px-5 py-3 font-mono text-[0.6rem] tracking-[0.18em] transition-all ${
+                  activeProductTab === tab
+                    ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7]"
+                    : "border-[#1b1b1b]/20 bg-transparent text-[#1b1b1b] hover:border-[#1b1b1b]"
+                }`}
+              >
+                {tab}
+              </button>
             ))}
+          </div>
+
+          {/* Yatay scroll — hem masaüstü hem mobil */}
+          <div className="relative">
+            <div
+              id="tab-scroll"
+              className="scrollbar-hide flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2"
+            >
+              {loading
+                ? Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="w-[62vw] md:w-[22%] shrink-0 snap-start"><SkeletonCard /></div>
+                  ))
+                : tabProducts.length > 0
+                  ? tabProducts.map((p) => (
+                      <div key={`tab-${p.id}`} className="w-[62vw] md:w-[22%] shrink-0 snap-start">
+                        <ProductCard p={p} onQuickAdd={(prod) => setQuickAddHandle(prod.handle)} />
+                      </div>
+                    ))
+                  : <div className="flex w-full items-center justify-center py-16 font-mono text-[0.72rem] tracking-[0.22em] text-[#7f756b]">BU KATEGORİDE ÜRÜN BULUNAMADI.</div>
+              }
+            </div>
+            <button
+              onClick={() => document.getElementById('tab-scroll')?.scrollBy({ left: -320, behavior: 'smooth' })}
+              className="absolute -left-3 top-[40%] -translate-y-1/2 flex h-9 w-9 items-center justify-center bg-[#fdfaf6] border border-[#1b1b1b]/15 shadow-sm text-[#1b1b1b] text-lg z-10"
+            >‹</button>
+            <button
+              onClick={() => document.getElementById('tab-scroll')?.scrollBy({ left: 320, behavior: 'smooth' })}
+              className="absolute -right-3 top-[40%] -translate-y-1/2 flex h-9 w-9 items-center justify-center bg-[#fdfaf6] border border-[#1b1b1b]/15 shadow-sm text-[#1b1b1b] text-lg z-10"
+            >›</button>
+          </div>
+
+          <button onClick={() => navigate("/kahveler")} className="mt-8 border-b border-[#1b1b1b] pb-1 font-mono text-[0.62rem] tracking-[0.2em] hover:opacity-60">
+            HEPSİNİ GÖR →
+          </button>
+        </div>
+      </section>
+
+      {/* 9. ICONS ROW */}
+      <section className="border-b border-[#1b1b1b] bg-[#1b1b1b] py-14 text-[#f7f0e7] md:py-18">
+        {/* Masaüstü */}
+        <div className="mx-auto hidden max-w-[1500px] md:grid grid-cols-4 divide-x divide-[#f7f0e7]/14 px-10">
+          {FEATURE_ITEMS.map((feat) => (
+            <div key={feat.title} className="px-4 py-0 text-center">
+              <h4 className="font-serif text-[clamp(1.2rem,1.8vw,1.8rem)] leading-none tracking-[-0.02em] text-[#c38152]">{feat.title}</h4>
+              <p className="mt-3 font-mono text-[0.75rem] tracking-[0.2em] text-[#f7f0e7]/60">{feat.subtitle}</p>
+            </div>
+          ))}
+        </div>
+        {/* Mobil: dikey liste */}
+        <div className="flex flex-col divide-y divide-[#f7f0e7]/14 px-5 md:hidden">
+          {FEATURE_ITEMS.map((feat) => (
+            <div key={feat.title} className="flex items-center justify-between py-5">
+              <h4 className="font-serif text-[1.3rem] leading-none tracking-[-0.02em] text-[#c38152]">{feat.title}</h4>
+              <p className="font-mono text-[0.75rem] tracking-[0.2em] text-[#f7f0e7]/60">{feat.subtitle}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+     
+      {/* SOSYAL MEDYADA BİZ */}
+      <InstagramSection />
+
+      {/* 12. IMAGE WITH TEXT */}
+      <section className="bg-[#1b1b1b] text-[#f7f0e7]">
+        <div ref={storyReveal.ref} className={`mx-auto grid max-w-[1600px] grid-cols-1 transition-all duration-1000 lg:grid-cols-2 ${storyReveal.visible ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"}`}>
+          <div className="min-h-[520px] overflow-hidden">
+            <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=2000&auto=format&fit=crop" alt="Edition Coffee Roastery" className="h-full min-h-[520px] w-full object-cover" />
+          </div>
+          <div className="flex flex-col justify-center p-6 md:p-10 lg:p-16">
+            <p className="mb-4 font-mono text-[0.75rem] tracking-[0.28em] text-[#c38152]">EDITION COFFEE ROASTERY</p>
+            <h2 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.1] tracking-[-0.02em]">Kahve Felsefemiz</h2>
+            <div className="mt-8 max-w-[650px] space-y-5 text-[1rem] font-light leading-relaxed text-[#f7f0e7]/74">
+              <p>2023 yılında Ankara’da, kahve deneyimini en üst noktaya taşımak vizyonuyla yola çıktık. Bize göre kahve; sıradan bir alışkanlık değil, her aşamasında titizlik ve ustalık gerektiren bir zanaattır.</p>
+              <p>Biz, kalitenin tesadüflere veya yoruma bırakılamayacağına inanıyoruz. Bu yüzden standartların ötesine geçiyor; yalnızca dünyanın dört bir yanından özenle seçilmiş, en yüksek tadım puanlarına sahip nadide çekirdekleri kavurucumuza alıyoruz.</p>
+              <p>Amacımız net: Karakteristiği korunmuş, her zaman taze ve kusursuz lezzete sahip o eşsiz fincanı sana sunmak. Çünkü Edition Coffee’de kahve, yalnızca içtiğin bir içecek değil, kaliteye olan saygımızın bir yansımasıdır.</p>
+            </div>
+            <button onClick={() => navigate("/kahveler")} className="mt-9 w-max border-b border-[#f7f0e7]/50 pb-1 font-mono text-[0.62rem] tracking-[0.2em] text-[#f7f0e7] transition-opacity hover:opacity-60">
+              FAVORİ KAHVENİ BUL →
+            </button>
           </div>
         </div>
       </section>
 
-      {/* ─── 6. KAHVEYE BAKIŞIMIZ ─── */}
-      {/* mb-16 md:mb-24 eklenerek, alt taraftaki muhtemel koyu renkli footer ile arasında boşluk (body rengi) bırakıldı */}
-      <section className="bg-[#F5EEE6] overflow-hidden mb-16 md:mb-24">
-        <div ref={storyReveal.ref} className={`max-w-[1440px] mx-auto transition-all duration-[1200ms] ease-out ${storyReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
-          <div className="grid grid-cols-1 lg:grid-cols-2">
-            <div className="aspect-square lg:aspect-auto lg:h-[600px] w-full overflow-hidden">
-              <img 
-                src="https://images.unsplash.com/photo-1611162458324-aae1eb4129a4?q=80&w=1200&auto=format&fit=crop" 
-                alt="Kahve Kavurma Atölyesi" 
-                className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
-              />
-            </div>
-            
-            <div className="flex flex-col justify-center p-8 md:p-16 lg:p-24 bg-[#1A0F08] text-[#FAF6EF]">
-              <p className="font-mono text-[0.5rem] tracking-[0.3em] uppercase text-[#C17A3A] mb-4 flex items-center gap-3">
-                <span className="block w-6 h-[1px] bg-[#C17A3A]" />
-                Ankara Atölyesi
-              </p>
-              <h2 className="font-serif text-[clamp(2rem,3.5vw,3rem)] leading-[1.1] mb-6">
-                Kahveye <em className="italic text-[#C17A3A]">Bakışımız</em>
-              </h2>
-              <p className="font-sans font-light text-[0.95rem] leading-relaxed text-[#FAF6EF]/80 mb-8 max-w-[480px]">
-                Kahve bizim için sadece bir içecek değil, çekirdeğin tarladan fincana uzanan o muazzam yolculuğuna duyduğumuz saygıdır. Nitelikli yeşil çekirdekleri özenle seçiyor, atölyemizde profillerine en uygun şekilde haftalık olarak kavuruyoruz. Amacımız her yudumda dürüst, kompleks ve tadı damağınızda kalacak o kusursuz fincanı sunmak.
-              </p>
-              <a href="/hakkimizda" className="inline-flex items-center gap-2 font-mono text-[0.6rem] tracking-[0.2em] uppercase text-[#C17A3A] hover:text-[#FAF6EF] transition-colors w-max pb-1 border-b border-[#C17A3A] hover:border-[#FAF6EF]">
-                Hikayemizi Okuyun <span>→</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-      
+      {/* 8. REVIEWS — geçici olarak gizlendi */}
+
+      {quickAddHandle && (
+        <QuickAddModal
+          handle={quickAddHandle}
+          onClose={() => setQuickAddHandle(null)}
+        />
+      )}
     </div>
   );
 }
