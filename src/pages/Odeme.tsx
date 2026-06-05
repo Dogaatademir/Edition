@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-import { Lock, ArrowLeft, ShieldCheck, CreditCard, Truck, X } from 'lucide-react';
+import { Lock, ArrowLeft, ShieldCheck, X } from 'lucide-react';
 import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
 import { trackEvent } from '../hooks/useAnalytics';
 import { getSessionId } from '../lib/session';

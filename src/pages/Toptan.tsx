@@ -48,7 +48,6 @@ const SERVICES = [
 
 export default function Toptan() {
   const heroReveal    = useReveal();
-  const statsReveal   = useReveal();
   const introReveal   = useReveal();
   const servicesReveal = useReveal();
   const ctaReveal     = useReveal();
