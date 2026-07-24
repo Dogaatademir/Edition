@@ -267,7 +267,7 @@ const Urun = () => {
 
                 <div className="absolute bottom-6 right-6 z-20">
                   <span className="font-mono text-[0.55rem] tracking-[0.2em] text-[#5c4635] uppercase border border-[#1b1b1b]/15 px-3 py-1 bg-[#fdfaf6]">
-                    Haftalık Taze Kavrum
+                    Haftalık Taze Kavrulmuş
                   </span>
                 </div>
               </div>
@@ -513,7 +513,7 @@ const Urun = () => {
 
                 {(!product.variants || product.variants.length === 0 || product.variants[0].weight === "Default Title") && !isFiltre && (
                   <span className="font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.1em] text-[#7b6a5c] uppercase">
-                    Haftalık Taze Kavrum
+                    Haftalık Taze Kavrulmuş
                   </span>
                 )}
               </div>

@@ -308,7 +308,7 @@ const CartDrawer = () => {
                             <div className="flex justify-between items-start">
                               <div>
                                 <div className="font-mono text-[0.5rem] tracking-[0.15em] uppercase text-[#7B6A5C] mb-1">
-                                   {localItem?.roast || "Taze Kavrum"}
+                                   {localItem?.roast || "Taze Kavrulmuş"}
                                 </div>
                                 <h4 className="font-serif text-[1rem] text-[#1A0F08] leading-snug">{line.title}</h4>
                                 {line.discountTitles && line.discountTitles.length > 0 && (
@@ -379,7 +379,7 @@ const CartDrawer = () => {
                   <span className="font-serif italic text-2xl text-[#7B6A5C] leading-none">0</span>
                 </div>
                 <h4 className="font-serif text-[1.5rem] text-[#1A0F08] mb-2">Sepetiniz Boş</h4>
-                <p className="font-sans font-light text-[0.85rem] text-[#C17A3A] mb-8 max-w-[200px]">Taze kavrum kahvelerimizi ve avantajlı paketleri keşfetmeye başlayın.</p>
+                <p className="font-sans font-light text-[0.85rem] text-[#C17A3A] mb-8 max-w-[200px]">Taze kavrulmuş kahvelerimizi ve avantajlı paketleri keşfetmeye başlayın.</p>
                 <button 
                   onClick={() => { setIsCartOpen(false); navigate('/kahveler'); }}
                   className="font-mono text-[0.65rem] tracking-[0.15em] text-[#FDFAF6] bg-[#C17A3A] border border-[#C17A3A] px-8 py-3 transition-colors hover:bg-[#A0612A] hover:border-[#A0612A]"
@@ -463,7 +463,7 @@ const Footer = () => {
               <img src="/editionbeyaz.png" alt="edi-TION" className="h-full w-auto object-contain object-left md:object-center" />
             </Link>
             <p className="font-sans font-light text-[0.95rem] leading-[1.8] max-w-[240px]">
-              Siparişinize özel öğütülen, taze kavrum kahveler ve sade bir kahve deneyimi.
+              Siparişinize özel öğütülen, taze kavrulmuş kahveler ve sade bir kahve deneyimi.
             </p>
           </div>
 
@@ -519,7 +519,7 @@ const Footer = () => {
             © {new Date().getFullYear()} EDITION COFFEE. TÜM HAKLARI SAKLIDIR.
           </p>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-6 font-mono text-[0.65rem] tracking-[0.2em] uppercase text-[#C17A3A]">
-            <span>EST. 2022 / ANKARA</span>
+            <span>EST. 2023 / ANKARA</span>
             <span className="hidden sm:inline">|</span>
             <a 
               href="https://www.opsiron.com" 

@@ -196,17 +196,17 @@ const SkeletonCard = () => (
 
 const PRODUCT_CATEGORY_LABELS = ["ESPRESSO", "FİLTRE", "TÜRK KAHVESİ"];
 const FEATURE_ITEMS = [
-  { title: "SİPARİŞE ÖZEL", subtitle: "HER KAVRUM TAZE" },
-  { title: "TEK KÖKEN", subtitle: "İZLENEBİLİR ÇEKİRDEK" },
+  { title: "SİPARİŞE ÖZEL", subtitle: "TAZE KAVRULMUŞ" },
+  { title: "TEK KÖKEN", subtitle: "%100 ARABİCA ÇEKİRDEKLERİ" },
   { title: "SPECIALTY COFFEE", subtitle: "80+ PUAN ÇEKİRDEK" },
-  { title: "2022'DAN BERİ", subtitle: "100.000+ MUTLU FİNCAN" },
+  { title: "2023'TEN BERİ", subtitle: "100.000+ MUTLU FİNCAN" },
 ];
 
 const KAHVE_KATEGORILERI = [
   {
     label: "TÜRK KAHVESİ",
     title: "Gelenekten Gelen Derinlik",
-    text: "Yüzyıllık geleneği modern kavrum anlayışıyla buluşturuyoruz. Her fincan, doğru sıcaklıkta, köpüklü ve karakterli.",
+    text: "Yüzyıllık geleneği modern kavurma anlayışıyla buluşturuyoruz. Her fincan, doğru sıcaklıkta, köpüklü ve karakterli.",
     cta: "KEŞFEDİN",
     path: "/kahveler?kategori=turk-kahvesi",
     image: "https://plus.unsplash.com/premium_photo-1732818135469-3bfc10ed83a2?w=900&auto=format&fit=crop&q=60",
@@ -444,10 +444,10 @@ function InstagramSection() {
 }
 
 const heroSlides = [
-  { title: "2. Ürüne %15\n3. Ürüne %20 İndirim", subtitle: "Farklı Lezzetler Denemeniz İçin", image: "/BANNER/W19.jpg", link: "/kahveler" },
   { title: "Üyelere Özel\n%5 İndirim", subtitle: "Dünya Kahvelerini Keşfetmeniz İçin", image: "/BANNER/W7.jpg", link: "/kahveler" },
-  { title: "3500 TL ve Üzeri Siparişlerde\n%15 İndirim", subtitle: "Kafe ve İşletmelere Özel", image: "/BANNER/W11.jpg", link: "/kahveler" },
   { title: "Tüm Ürünlerde\n%20'ye Varan İndirim", subtitle: "Eşsiz Lezzetleri Keşfedin", image: "/BANNER/s1.jpg", link: "/kahveler" },
+  { title: "2. Ürüne %15\n3. Ürüne %20 İndirim", subtitle: "Farklı Lezzetler Denemeniz İçin", image: "/BANNER/W19.jpg", link: "/kahveler" },
+  { title: "3500 TL ve Üzeri Siparişlerde\n%15 İndirim", subtitle: "Kafe ve İşletmelere Özel", image: "/BANNER/W11.jpg", link: "/kahveler" },
 ];
 
 export default function Anasayfa() {
@@ -575,13 +575,12 @@ export default function Anasayfa() {
           {[...Array(2)].map((_, repeatIndex) => (
             <span key={repeatIndex} className="inline-flex items-center">
               {[
-                "2019'DAN BERİ 100,000+ MUTLU KAHVESEVERİN TERCİHİ",
-                "SİPARİŞİNİZE ÖZEL TAZE KAVRUM",
+                "2023'DAN BERİ 100,000+ MUTLU KAHVESEVERİN TERCİHİ",
+                "SİPARİŞİNİZE ÖZEL TAZE KAVRULMUŞ",
                 "850 TL VE ÜZERİ SİPARİŞLERDE ÜCRETSİZ KARGO",
-                "TÜRK KAHVESİ · FİLTRE · ESPRESSO",
+                "TÜRK KAHVESİ · FİLTRE KAHVE · ESPRESSO",
                 "AYNI GÜN KARGOYA VERİLİR",
                 "100% ARABİCA, TEK KÖKEN VE HARMANLAR",
-                "ANKARA'DAN TÜM TÜRKİYE'YE",
               ].map((text, i) => (
                 <span key={i} className="inline-flex items-center px-8 font-mono text-[0.72rem] tracking-[0.24em] md:text-[0.82rem]">
                   {text}

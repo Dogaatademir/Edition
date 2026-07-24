@@ -122,7 +122,7 @@ export default function Hakkimizda() {
               {
                 icon: <Flame className="w-5 h-5" strokeWidth={1.5} />,
                 label: "Atölyemizden",
-                title: "Siparişe Özel Kavrum",
+                title: "Siparişe Özel Kavrulmuş",
                 text: "Her çekirdeğin potansiyelini ortaya çıkarmak için bölgesine özel kavurma profilleri geliştiriyoruz. Her sipariş taze kavrulur.",
               },
               {
@@ -166,7 +166,7 @@ export default function Hakkimizda() {
             Ankara'daki kavurma atölyemizde siparişe göre taze kavurur, özenle paketleyerek doğrudan size ulaştırırız.
           </h3>
           <div className="font-mono text-[0.62rem] tracking-[0.2em] uppercase text-[#f7f0e7]/50 border border-[#f7f0e7]/15 px-8 py-3">
-            Taze Kavrum · Siparişe Özel · Tüm Türkiye'ye
+            Taze Kavrulmuş · Siparişe Özel · Tüm Türkiye'ye
           </div>
         </div>
       </section>
