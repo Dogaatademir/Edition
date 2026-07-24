@@ -221,9 +221,9 @@ export default function Odeme() {
 
                     return (
                       <div key={line.id} className={`flex gap-6 pb-6 border-b border-[#1b1b1b]/10 last:border-0 last:pb-0 transition-opacity ${isLoadingCart ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
-                        <div className="h-24 w-20 bg-[#f0e8dc] border border-[#1b1b1b]/10 flex items-center justify-center p-2 shrink-0">
+                        <div className="h-24 w-20 bg-[#f0e8dc] border border-[#1b1b1b]/10 flex items-center justify-center overflow-hidden shrink-0">
                           {line.image ? (
-                            <img src={line.image} alt={line.title} className="h-full w-full object-contain mix-blend-multiply" />
+                            <img src={line.image} alt={line.title} className="h-full w-full scale-150 object-contain mix-blend-multiply" />
                           ) : (
                             <div className="font-mono text-[0.45rem] text-[#C17A3A] tracking-[0.1em] -rotate-90 whitespace-nowrap">
                               KAHVE
@@ -405,16 +405,20 @@ export default function Odeme() {
                     </div>
 
                     {shopifyCart.discount > 0 && (
-                      <div className="flex justify-between items-center py-2.5 px-3 bg-[#f0e8dc] border-l-2 border-[#c38152]">
-                        <div className="flex items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-[#c38152] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <div className="flex justify-between items-start gap-3 py-2.5 px-3 bg-[#f0e8dc] border-l-2 border-[#c38152]">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-[#c38152] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                           </svg>
-                          <span className="font-mono text-[0.58rem] tracking-[0.14em] uppercase text-[#C17A3A]">
-                            {appliedCode ? 'Kod İndirimi' : 'Sepet İndirimi'}
+                          <span className="font-mono text-[0.58rem] tracking-[0.14em] uppercase text-[#C17A3A] break-words min-w-0">
+                            {appliedCode
+                              ? 'Kod İndirimi'
+                              : shopifyCart.discountTitles && shopifyCart.discountTitles.length > 0
+                                ? shopifyCart.discountTitles.join(' + ')
+                                : 'Sepet İndirimi'}
                           </span>
                         </div>
-                        <span className="font-mono text-[0.9rem] font-semibold text-[#8b2f22]">
+                        <span className="font-mono text-[0.9rem] font-semibold text-[#8b2f22] shrink-0">
                           −₺{shopifyCart.discount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                         </span>
                       </div>

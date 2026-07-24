@@ -10,10 +10,6 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowLeft,
-  Bean,
-  Beaker,
-  Cone,
-  FlaskConical,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { fetchShopifyProductByHandle, type CoffeeProduct, type ProductVariant } from '../lib/shopify';
@@ -21,10 +17,12 @@ import ProductInfoSection from '../components/ProductInfoSection';
 import { useMetaProductView } from '../hooks/useMetaAnalytics';
 
 const grindOptions = [
-  { id: 'Çekirdek',     Icon: Bean          },
-  { id: 'French Press', Icon: Beaker    },
-  { id: 'V60',          Icon: Cone          },
-  { id: 'Chemex',       Icon: FlaskConical  },
+  { id: 'Çekirdek',      image: '/highlightcovers/cekirdek.png'     },
+  { id: 'Espresso',      image: '/highlightcovers/espresso.png'     },
+  { id: 'French Press',  image: '/highlightcovers/french_press.png' },
+  { id: 'V60',           image: '/highlightcovers/v60.png'          },
+  { id: 'Chemex',        image: '/highlightcovers/chemex.png'       },
+  { id: 'Kağıt Filtre',  image: '/highlightcovers/kagit_filtre.png' },
 ];
 
 // --- YARDIMCI BİLEŞENLER ---
@@ -82,6 +80,7 @@ const Urun = () => {
   const [viewers, setViewers] = useState(Math.floor(Math.random() * 11) + 10);
   
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const [imageHovered, setImageHovered] = useState(false);
   const addToCartRef = useRef<HTMLDivElement>(null);
 
   // Ürün Çekme
@@ -184,14 +183,16 @@ const Urun = () => {
       cartProductName += ` - ${selectedVariant.weight}`;
     }
     
-    if (product.category.includes('filtre')) cartProductName += ` (${grind})`;
+    const showsGrind = product.category.includes('filtre') || product.category.includes('espresso');
+    if (showsGrind) cartProductName += ` (${grind})`;
 
     const cartProductObj = {
       ...product,
-      id: Date.now().toString(), 
+      id: Date.now().toString(),
       variantId: selectedVariant ? selectedVariant.id : product.variants?.[0]?.id,
       name: cartProductName,
       price: selectedVariant ? selectedVariant.price : product.price,
+      grind: showsGrind ? grind : undefined,
     };
 
     addToCart(cartProductObj as any, quantity); 
@@ -199,7 +200,9 @@ const Urun = () => {
 
   const displayPrice = selectedVariant ? selectedVariant.price : product.price;
   const displayOldPrice = selectedVariant ? selectedVariant.oldPrice : product.oldPrice;
-  const isFiltre = product.category.includes('filtre');
+  const isFiltre = product.category.includes('filtre') || product.category.includes('espresso');
+  const mainImage = selectedVariant?.image ?? product.image;
+  const secondImage = selectedVariant?.hoverImage ?? null;
 
   const freeShippingThreshold = 750;
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - totalPrice);
@@ -223,13 +226,28 @@ const Urun = () => {
             
             {/* SOL: GÖRSEL */}
             <div className="w-full border-b lg:border-b-0 lg:border-r border-[#1b1b1b]/10 bg-[#efe5d8]">
-              <div className="relative w-full aspect-square lg:aspect-auto lg:h-[calc(100vh-130px)] lg:sticky lg:top-[130px] flex items-center justify-center overflow-hidden p-12 lg:p-20 group">
-                {product.image ? (
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="h-full w-full object-contain mix-blend-multiply transition-transform duration-1000 group-hover:scale-105 z-10"
-                  />
+              <div
+                className="relative w-full aspect-square lg:aspect-auto lg:h-[calc(100vh-130px)] lg:sticky lg:top-[130px] flex items-center justify-center overflow-hidden p-4 lg:p-6 group"
+                onMouseEnter={() => setImageHovered(true)}
+                onMouseLeave={() => setImageHovered(false)}
+                onTouchStart={() => setImageHovered(true)}
+                onTouchEnd={() => setImageHovered(false)}
+              >
+                {mainImage ? (
+                  <>
+                    <img
+                      src={mainImage}
+                      alt={product.name}
+                      className={`h-full w-full scale-150 object-contain mix-blend-multiply transition-all duration-1000 group-hover:scale-[1.55] z-10 ${secondImage ? (imageHovered ? 'opacity-0' : 'opacity-100') : ''}`}
+                    />
+                    {secondImage && (
+                      <img
+                        src={secondImage}
+                        alt={product.name}
+                        className={`absolute inset-0 h-full w-full scale-150 object-contain mix-blend-multiply transition-all duration-1000 group-hover:scale-[1.55] z-10 ${imageHovered ? 'opacity-100' : 'opacity-0'}`}
+                      />
+                    )}
+                  </>
                 ) : (
                   <svg width="120" height="120" viewBox="0 0 80 80" fill="none" className="opacity-20 z-10">
                     <ellipse cx="40" cy="40" rx="28" ry="36" stroke="#1b1b1b" strokeWidth="1.5" />
@@ -240,9 +258,6 @@ const Urun = () => {
                 )}
                 
                 <div className="absolute top-6 left-6 flex flex-col gap-2 z-20">
-                  <span className="font-mono text-[0.6rem] tracking-[0.2em] text-[#7b6a5c] uppercase">
-                    {product.code || 'NO-CODE'}
-                  </span>
                   {product.badge && (
                     <span className="font-mono text-[0.55rem] font-semibold tracking-[0.15em] uppercase text-[#f7f0e7] bg-[#1b1b1b] px-3 py-1 self-start">
                       {product.badge}
@@ -252,7 +267,7 @@ const Urun = () => {
 
                 <div className="absolute bottom-6 right-6 z-20">
                   <span className="font-mono text-[0.55rem] tracking-[0.2em] text-[#5c4635] uppercase border border-[#1b1b1b]/15 px-3 py-1 bg-[#fdfaf6]">
-                    {product.roast || 'Özel Kavrum'}
+                    Haftalık Taze Kavrum
                   </span>
                 </div>
               </div>
@@ -262,12 +277,13 @@ const Urun = () => {
             <div className="flex flex-col p-8 lg:p-14 bg-[#fdfaf6]">
               
               <div className="mb-6">
-                <div className="font-mono text-[0.6rem] tracking-[0.2em] uppercase text-[#7b6a5c] mb-3 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#7b6a5c]">
-                  {product.origin || 'Bilinmeyen Köken'} {product.process ? `· ${product.process}` : ''}
-                </div>
+              
 
                 <h1 className="font-serif text-[clamp(2rem,3.5vw,3.5rem)] text-[#1b1b1b] leading-[1.05] tracking-[-0.02em] mb-6">
                   {product.name}
+                  {selectedVariant && selectedVariant.weight !== "Default Title" && (
+                    <span> {selectedVariant.weight}</span>
+                  )}
                 </h1>
                 
                 <div className="flex items-end gap-4 border-b border-[#1b1b1b]/15 pb-6">
@@ -292,10 +308,10 @@ const Urun = () => {
                         <button
                           key={variant.id}
                           onClick={() => setSelectedVariant(variant)}
-                          className={`px-5 py-2.5 border font-mono text-[0.65rem] tracking-[0.15em] uppercase transition-colors ${
-                            selectedVariant?.id === variant.id 
-                              ? 'border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7]' 
-                              : 'border-[#1b1b1b]/15 bg-[#fdfaf6] text-[#5c4635] hover:border-[#1b1b1b]'
+                          className={`px-7 py-4 border font-mono text-[0.8rem] tracking-[0.15em] uppercase transition-colors bg-[#fdfaf6] ${
+                            selectedVariant?.id === variant.id
+                              ? 'border-[#1b1b1b] text-[#1b1b1b]'
+                              : 'border-[#1b1b1b]/15 text-[#5c4635] hover:border-[#1b1b1b]'
                           }`}
                         >
                           {variant.weight}
@@ -308,19 +324,16 @@ const Urun = () => {
                 {isFiltre && (
                   <div className="mb-6">
                     <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#7b6a5c] uppercase block mb-3">Öğütme Derecesi</span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {grindOptions.map(({ id, Icon }) => (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {grindOptions.map(({ id, image }) => (
                         <button
                           key={id}
                           onClick={() => setGrind(id)}
-                          className={`flex flex-col items-center justify-center gap-2 p-4 border font-mono text-[0.6rem] tracking-[0.12em] uppercase transition-all duration-300 ${
-                            grind === id
-                              ? 'border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7]'
-                              : 'border-[#1b1b1b]/15 bg-transparent text-[#5c4635] hover:border-[#1b1b1b] hover:text-[#1b1b1b]'
+                          className={`flex items-center justify-center p-2 border transition-all duration-300 ${
+                            grind === id ? 'border-[#1b1b1b] opacity-100' : 'border-[#1b1b1b]/15 opacity-40 hover:opacity-70'
                           }`}
                         >
-                          <Icon className="w-5 h-5" strokeWidth={1.3} />
-                          {id}
+                          <img src={image} alt={id} className="w-full h-auto object-contain" />
                         </button>
                       ))}
                     </div>
@@ -329,7 +342,7 @@ const Urun = () => {
               </div>
 
               {/* Kısa Açıklama */}
-              <p className="text-[#5c4635] font-sans font-light text-[0.95rem] leading-[1.85] mb-10 line-clamp-3">
+              <p className="text-[#5c4635] font-sans font-light text-[0.95rem] leading-[1.85] mb-10 whitespace-pre-line">
                 {product.description}
               </p>
 
@@ -500,7 +513,7 @@ const Urun = () => {
 
                 {(!product.variants || product.variants.length === 0 || product.variants[0].weight === "Default Title") && !isFiltre && (
                   <span className="font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.1em] text-[#7b6a5c] uppercase">
-                    {product.roast || 'Özel Kavrum'}
+                    Haftalık Taze Kavrum
                   </span>
                 )}
               </div>

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SlidersHorizontal, ArrowDownAZ, Check, ChevronDown, X } from 'lucide-react';
 import { fetchShopifyProducts, type CoffeeProduct } from '../lib/shopify';
-import { useCart } from '../context/CartContext';
+import QuickAddModal from '../components/QuickAddModal';
 
 type SortOption   = 'default' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
 type FilterOption = 'all' | 'turk-kahvesi' | 'filtre' | 'espresso' | 'paket';
@@ -23,7 +23,7 @@ const SkeletonCard = () => (
 );
 
 // ─── ÜRÜN KARTI ───────────────────────────────────────────────────────────────
-const ProductCard = ({ p, onAdd }: { p: CoffeeProduct; onAdd: (p: CoffeeProduct) => void }) => {
+const ProductCard = ({ p, onQuickAdd }: { p: CoffeeProduct; onQuickAdd: (p: CoffeeProduct) => void }) => {
   const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
   const secondImage = p.images && p.images.length > 1 ? p.images[1] : null;
@@ -73,14 +73,14 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct; onAdd: (p: CoffeeProduct)
             <img
               src={p.image}
               alt={p.name}
-              className={`h-full w-full object-contain transition-all duration-500 ease-out group-hover:scale-[1.04] ${secondImage ? (hovered ? 'opacity-0' : 'opacity-100') : ''}`}
+              className={`h-full w-full scale-150 object-contain transition-all duration-500 ease-out group-hover:scale-[1.55] ${secondImage ? (hovered ? 'opacity-0' : 'opacity-100') : ''}`}
               loading="lazy"
             />
             {secondImage && (
               <img
                 src={secondImage}
                 alt={p.name}
-                className={`absolute inset-0 h-full w-full object-contain transition-all duration-500 ease-out group-hover:scale-[1.04] ${hovered ? 'opacity-100' : 'opacity-0'}`}
+                className={`absolute inset-0 h-full w-full scale-150 object-contain transition-all duration-500 ease-out group-hover:scale-[1.55] ${hovered ? 'opacity-100' : 'opacity-0'}`}
                 loading="lazy"
               />
             )}
@@ -94,7 +94,7 @@ const ProductCard = ({ p, onAdd }: { p: CoffeeProduct; onAdd: (p: CoffeeProduct)
 
         {/* sepete ekle */}
         <button
-          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onAdd(p); }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onQuickAdd(p); }}
           className="absolute inset-x-4 bottom-4 translate-y-3 border border-[#1b1b1b] bg-[#f7f0e7] px-5 py-3 font-mono text-[0.6rem] uppercase tracking-[0.16em] text-[#1b1b1b] opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 hover:bg-[#1b1b1b] hover:text-[#f7f0e7]"
         >
           + Sepete Ekle
@@ -130,6 +130,7 @@ const Kahveler = () => {
   const [isFilterOpen, setIsFilterOpen]         = useState(false);
   const [currentPage, setCurrentPage]           = useState(1);
   const [isMobile, setIsMobile]                 = useState(false);
+  const [quickAddHandle, setQuickAddHandle]     = useState<string | null>(null);
 
   const sortRef   = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -137,8 +138,6 @@ const Kahveler = () => {
   const [gridVisible, setGridVisible] = useState(false);
 
   const PAGE_SIZE = isMobile ? 6 : 8;
-
-  const { addToCart } = useCart();
   const location = useLocation();
 
   useEffect(() => {
@@ -294,7 +293,7 @@ const Kahveler = () => {
                   className={`transition-all duration-700 ease-out ${gridVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
                   style={{ transitionDelay: `${(idx % PAGE_SIZE) * 60}ms` }}
                 >
-                  <ProductCard p={product} onAdd={addToCart} />
+                  <ProductCard p={product} onQuickAdd={(prod) => setQuickAddHandle(prod.handle)} />
                 </div>
               ))}
             </div>
@@ -343,6 +342,13 @@ const Kahveler = () => {
           </div>
         )}
       </div>
+
+      {quickAddHandle && (
+        <QuickAddModal
+          handle={quickAddHandle}
+          onClose={() => setQuickAddHandle(null)}
+        />
+      )}
     </main>
   );
 };

@@ -7,6 +7,8 @@ export interface ProductVariant {
   weight: string;
   price: string;
   oldPrice?: string;
+  image?: string;
+  hoverImage?: string;
 }
 
 export interface CoffeeProduct {
@@ -27,6 +29,7 @@ export interface CoffeeProduct {
   category: string[];
   variants: ProductVariant[];
   brewingGuide?: string;
+  grind?: string;
 }
 
 export function mapShopifyProduct(p: any): CoffeeProduct {
@@ -36,12 +39,19 @@ export function mapShopifyProduct(p: any): CoffeeProduct {
   const metaMap: Record<string, string> = {};
   p.metafields?.forEach((m: any) => { if (m) metaMap[m.key] = m.value; });
 
-  const mappedVariants: ProductVariant[] = (p.variants?.nodes || []).map((v: any) => ({
-    id: v.id,
-    weight: v.title,
-    price: `${parseFloat(v.price.amount).toFixed(2)} ₺`,
-    oldPrice: v.compareAtPrice ? `${parseFloat(v.compareAtPrice.amount).toFixed(2)} ₺` : undefined,
-  }));
+  const mappedVariants: ProductVariant[] = (p.variants?.nodes || []).map((v: any) => {
+    const variantMetaMap: Record<string, any> = {};
+    v.metafields?.forEach((m: any) => { if (m) variantMetaMap[m.key] = m; });
+
+    return {
+      id: v.id,
+      weight: v.title,
+      price: `${parseFloat(v.price.amount).toFixed(2)} ₺`,
+      oldPrice: v.compareAtPrice ? `${parseFloat(v.compareAtPrice.amount).toFixed(2)} ₺` : undefined,
+      image: v.image?.url ?? undefined,
+      hoverImage: variantMetaMap["2_gorsel"]?.reference?.image?.url ?? undefined,
+    };
+  });
 
   return {
     id: p.id,
@@ -59,7 +69,7 @@ export function mapShopifyProduct(p: any): CoffeeProduct {
     code: metaMap["code"] ?? p.handle.toUpperCase().slice(0, 6),
     category: p.tags || [],
     variants: mappedVariants,
-    brewingGuide: metaMap["brewingGuide"] ?? "Standart demleme profilleri için uygundur.",
+    brewingGuide: metaMap["brewingguide"] ?? "Standart demleme profilleri için uygundur.",
   };
 }
 
@@ -189,6 +199,17 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Coffe
             title
             price { amount }
             compareAtPrice { amount }
+            image { url }
+            metafields(identifiers: [
+              { namespace: "custom", key: "2_gorsel" }
+            ]) {
+              key
+              reference {
+                ... on MediaImage {
+                  image { url }
+                }
+              }
+            }
           }
         }
         metafields(identifiers: [
@@ -522,6 +543,7 @@ export interface ShopifyCartResponse {
   subtotal: number;
   total: number;
   discount: number;
+  discountTitles: string[];
   shippingCost: number | null;
   shippingTitle: string | null;
   lines: Array<{
@@ -542,7 +564,8 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
 
   const lineItems = cartItems.map((item: any) => ({
     merchandiseId: item.variantId || item.id,
-    quantity: item.quantity
+    quantity: item.quantity,
+    ...(item.grind ? { attributes: [{ key: "Öğütme Derecesi", value: item.grind }] } : {}),
   }));
 
   const createQuery = `
@@ -561,12 +584,22 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
           }
           discountAllocations {
             discountedAmount { amount }
+            ... on CartCodeDiscountAllocation {
+              code
+            }
+            ... on CartAutomaticDiscountAllocation {
+              title
+            }
+            ... on CartCustomDiscountAllocation {
+              title
+            }
           }
           lines(first: 100) {
             edges {
               node {
                 id
                 quantity
+                attributes { key value }
                 cost {
                   totalAmount { amount }
                 }
@@ -654,10 +687,15 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
     }
 
     let totalDiscount = 0;
+    const cartDiscountTitles: string[] = [];
 
     if (cartData.cart.discountAllocations) {
       cartData.cart.discountAllocations.forEach((alloc: any) => {
         totalDiscount += parseFloat(alloc.discountedAmount.amount);
+        const label = alloc.code || alloc.title;
+        if (label && !cartDiscountTitles.includes(label)) {
+          cartDiscountTitles.push(label);
+        }
       });
     }
 
@@ -747,6 +785,7 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
       subtotal: displaySubtotal,
       total: finalTotal,
       discount: totalDiscount,
+      discountTitles: cartDiscountTitles,
       shippingCost,
       shippingTitle,
       lines: parsedLines,

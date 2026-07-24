@@ -20,6 +20,7 @@ const Toptan = lazy(() => import('../pages/Toptan'));
 const Iletisim = lazy(() => import('../pages/Iletisim'));
 const Odeme = lazy(() => import('../pages/Odeme'));
 const Analitik = lazy(() => import('../components/AnalyticsDashboard'));
+const AnalyticsGate = lazy(() => import('../components/AnalyticsGate'));
 const UyelikSozlesmesi = lazy(() => import('../pages/UyelikSozlesmesi'));
 const GizlilikSozlesmesi = lazy(() => import('../pages/GizlilikSozlesmesi'));
 const IadeSartlari = lazy(() => import('../pages/IadeSartlari'));
@@ -111,7 +112,7 @@ function App() {
                   <Route path="/sss" element={<Sss />} />
                   <Route path="/toptan" element={<Toptan />} />
                   <Route path="/iletisim" element={<Iletisim />} />
-                  <Route path="/analiz" element={<Analitik />} />
+                  <Route path="/analiz" element={<AnalyticsGate><Analitik /></AnalyticsGate>} />
                   <Route path="/uyelik-sozlesmesi" element={<UyelikSozlesmesi />} />
                   <Route path="/gizlilik-sozlesmesi" element={<GizlilikSozlesmesi />} />
                   <Route path="/iade-sartlari" element={<IadeSartlari />} />

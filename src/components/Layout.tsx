@@ -25,7 +25,7 @@ const AnnouncementBar = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   
   const messages = [
-    "%25'E VARAN İNDİRİMLİ KAHVE SEÇKİSİNİ KEŞFET",
+    "%20'YE VARAN İNDİRİMLİ KAHVE SEÇKİSİNİ KEŞFET",
     "850 TL VE ÜZERİ SİPARİŞLERDE ÜCRETSİZ KARGO"
   ];
 
@@ -44,7 +44,7 @@ const AnnouncementBar = () => {
       >
         {messages.map((msg, i) => (
           <div key={i} className="h-full w-full flex items-center justify-center shrink-0">
-            <span className="font-mono text-[0.65rem] tracking-[0.15em] text-center">
+            <span className="font-mono text-[0.8rem] tracking-[0.15em] text-center">
               {msg}
             </span>
           </div>
@@ -89,7 +89,7 @@ const CookieBanner = () => {
           </div>
           <h4 className="font-serif text-[1.2rem] text-[#1A0F08] mb-2 leading-tight">Deneyim tercihiniz</h4>
           <p className="font-sans font-light text-[0.85rem] text-[#C17A3A] leading-relaxed">
-            Alışveriş deneyiminizi iyileştirmek için yasal düzenlemelere uygun çerezler kullanıyoruz. Detaylı bilgiye Gizlilik ve Çerez Politikası sayfamızdan erişebilirsiniz. <Link to="/kvkk" className="text-[#1A0F08] border-b border-[#1A0F08] ml-2 hover:text-[#C17A3A] hover:border-[#5C4635] transition-colors">Detaylar</Link>
+            Alışveriş deneyiminizi iyileştirmek için yasal düzenlemelere uygun çerezler kullanıyoruz. Detaylı bilgiye Gizlilik ve Çerez Politikası sayfamızdan erişebilirsiniz. <Link to="/gizlilik-sozlesmesi" className="text-[#1A0F08] border-b border-[#1A0F08] ml-2 hover:text-[#C17A3A] hover:border-[#5C4635] transition-colors">Detaylar</Link>
           </p>
         </div>
 
@@ -101,6 +101,90 @@ const CookieBanner = () => {
             ANLADIM
           </button>
          
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- ÜYELİK TEŞVİK POPUP'I ---
+const MembershipPopup = () => {
+  const { isAuthenticated } = useAuth();
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) return;
+    const seen = localStorage.getItem('membership-popup-seen');
+    if (!seen) {
+      const timer = setTimeout(() => setIsVisible(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated]);
+
+  const handleClose = () => {
+    localStorage.setItem('membership-popup-seen', '1');
+    setIsVisible(false);
+  };
+
+  if (!isVisible) return null;
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-6">
+      <div
+        className="absolute inset-0 bg-[#1A0F08]/70 backdrop-blur-sm animate-in fade-in duration-500"
+        onClick={handleClose}
+      />
+      <div className="relative w-full max-w-4xl overflow-hidden bg-[#1A0F08] shadow-2xl animate-in zoom-in-95 fade-in duration-500 grid grid-cols-1 md:grid-cols-2 max-h-[92vh]">
+        <button
+          onClick={handleClose}
+          className="absolute top-5 right-5 z-10 flex h-9 w-9 items-center justify-center border border-[#FDFAF6]/30 bg-[#1A0F08]/40 text-[#FDFAF6] backdrop-blur-sm hover:bg-[#1A0F08]/70 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Sol: Görsel */}
+        <div className="relative hidden h-full min-h-[420px] md:block">
+          <img src="/BANNER/W19.jpg" alt="Edition Coffee Roastery" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1A0F08]/70 via-transparent to-transparent" />
+          <div className="absolute bottom-6 left-6 right-6">
+            <span className="inline-block bg-[#C17A3A] px-3 py-1.5 font-mono text-[0.62rem] tracking-[0.2em] text-[#FDFAF6]">
+              %5 HOŞGELDİN İNDİRİMİ
+            </span>
+          </div>
+        </div>
+
+        {/* Sağ: İçerik */}
+        <div className="flex flex-col justify-center p-8 sm:p-10 md:p-12 text-center md:text-left">
+          {/* Mobil: üstte küçük görsel şeridi */}
+          <div className="relative -mx-8 -mt-8 mb-6 h-36 sm:-mx-10 sm:-mt-10 md:hidden">
+            <img src="/BANNER/W19.jpg" alt="Edition Coffee Roastery" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#1A0F08] via-[#1A0F08]/20 to-transparent" />
+          </div>
+
+          <div className="font-mono text-[0.6rem] tracking-[0.28em] uppercase text-[#C38152] mb-4">
+            ÜYELERE ÖZEL
+          </div>
+          <h4 className="font-serif text-[clamp(2rem,4.5vw,3rem)] leading-[1.05] tracking-[-0.02em] text-[#F7F0E7] mb-4">
+            Aramıza katıl,<br />%5 indirimi kap.
+          </h4>
+          <p className="font-sans font-light text-[1rem] text-[#F7F0E7]/70 leading-relaxed mb-8 max-w-[380px] mx-auto md:mx-0">
+            Üyelere özel indirimler, kampanyalardan ilk sen haberdar ol ve siparişlerini kolayca takip et. Katılmak bir dakikanı bile almaz.
+          </p>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => { handleClose(); window.location.href = 'https://account.editioncoffee.com.tr/'; }}
+              className="w-full bg-[#C17A3A] text-[#FDFAF6] px-6 py-4 font-mono text-[0.68rem] tracking-[0.2em] border border-[#C17A3A] hover:bg-[#A0612A] hover:border-[#A0612A] transition-all hover:scale-[1.02]"
+            >
+              HEMEN ÜYE OL →
+            </button>
+            <button
+              onClick={handleClose}
+              className="w-full font-mono text-[0.6rem] tracking-[0.15em] text-[#F7F0E7]/50 hover:text-[#F7F0E7] transition-colors py-1"
+            >
+              BELKİ DAHA SONRA
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -210,9 +294,9 @@ const CartDrawer = () => {
 
                       return (
                         <div key={line.id} className={`flex gap-4 bg-[#FDFAF6] border border-[#1A0F08]/10 p-4 group hover:border-[#1A0F08] transition-colors ${isLoadingCart ? 'opacity-70 pointer-events-none' : 'opacity-100'}`}>
-                          <div className="h-24 w-20 bg-[#F7F0E7] border border-[#1A0F08]/10 flex items-center justify-center p-2 shrink-0">
+                          <div className="h-24 w-20 bg-[#F7F0E7] border border-[#1A0F08]/10 flex items-center justify-center overflow-hidden shrink-0">
                             {line.image ? (
-                               <img src={line.image} alt={line.title} className="h-full w-full object-contain mix-blend-multiply" />
+                               <img src={line.image} alt={line.title} className="h-full w-full scale-150 object-contain mix-blend-multiply" />
                             ) : (
                                <div className="font-mono text-[0.45rem] text-[#7B6A5C] tracking-[0.1em] -rotate-90 whitespace-nowrap">
                                  {localItem?.code || `KOD-${itemId}`}
@@ -318,9 +402,13 @@ const CartDrawer = () => {
               
               <div className="flex flex-col gap-2 mb-6">
                 {discount > 0 && (
-                  <div className="flex justify-between items-center text-[#C17A3A] pb-2 border-b border-[#1A0F08]/10 border-dashed">
-                    <span className="font-mono text-[0.6rem] tracking-[0.2em] text-[#7B6A5C]">SEPET İNDİRİMİ</span>
-                    <span className="font-mono font-medium text-[0.9rem] text-[#1A0F08]">
+                  <div className="flex justify-between items-start gap-3 text-[#C17A3A] pb-2 border-b border-[#1A0F08]/10 border-dashed">
+                    <span className="font-mono text-[0.6rem] tracking-[0.2em] text-[#7B6A5C] break-words min-w-0">
+                      {shopifyCart?.discountTitles && shopifyCart.discountTitles.length > 0
+                        ? shopifyCart.discountTitles.join(' + ').toUpperCase()
+                        : 'SEPET İNDİRİMİ'}
+                    </span>
+                    <span className="font-mono font-medium text-[0.9rem] text-[#1A0F08] shrink-0">
                       - ₺{discount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -474,7 +562,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
 
   const isTransparent = isHomePage && !isScrolled;
-  const navLinkClass = `font-mono text-[0.65rem] tracking-[0.22em] uppercase transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-[1px] after:bottom-[-6px] after:left-0 after:bg-[#C17A3A] after:origin-bottom-right hover:after:scale-x-100 hover:after:origin-bottom-left after:transition-transform after:duration-300 ${isTransparent ? 'text-[#FDFAF6]/80 hover:text-[#FDFAF6]' : 'text-[#1A0F08]/70 hover:text-[#1A0F08]'}`;
+  const navLinkClass = `font-mono text-[0.65rem] lg:text-[0.75rem] tracking-[0.22em] uppercase transition-colors relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-[1px] after:bottom-[-6px] after:left-0 after:bg-[#C17A3A] after:origin-bottom-right hover:after:scale-x-100 hover:after:origin-bottom-left after:transition-transform after:duration-300 ${isTransparent ? 'text-[#FDFAF6]/80 hover:text-[#FDFAF6]' : 'text-[#1A0F08]/70 hover:text-[#1A0F08]'}`;
   const dropdownLinkClass = "font-mono text-[0.65rem] tracking-[0.2em] uppercase text-[#1A0F08]/70 hover:text-[#C17A3A] transition-colors block py-2";
 
   return (
@@ -497,7 +585,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
               <Menu className="h-6 w-6" strokeWidth={1.5} />
             </button>
 
-            <nav className="hidden lg:flex gap-8 items-center h-full">
+            <nav className="hidden lg:flex gap-5 items-center h-full lg:-ml-6">
               <Link to="/" className={navLinkClass}>
                 Ana Sayfa
               </Link>
@@ -523,7 +611,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 Toptan Satış
               </Link>
               <Link to="/iletisim" className={navLinkClass}>
-                İletişim
+                İLETİŞİM
               </Link>
             </nav>
           </div>
@@ -538,7 +626,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
             </button>
 
             <button
-              onClick={() => isAuthenticated ? navigate('/hesap') : window.location.href = 'https://account.editioncoffee.com.trm.tr/'}
+              onClick={() => isAuthenticated ? navigate('/hesap') : window.location.href = 'https://account.editioncoffee.com.tr/'}
               className={`transition-colors hidden sm:block ${isTransparent ? 'text-[#FDFAF6]/80 hover:text-[#FDFAF6]' : 'text-[#1A0F08]/70 hover:text-[#1A0F08]'}`}
             >
               <User className="h-5 w-5" />
@@ -599,7 +687,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
           <div className="p-6 border-t border-[#1A0F08]/10 bg-[#F7F0E7] flex flex-col gap-4">
             {/* Mobil Menü: Giriş durumuna göre metin ve yönlendirme değişimi */}
            <button
-  onClick={() => isAuthenticated ? navigate('/hesap') : window.location.href = 'https://account.editioncoffee.com.tr/account'}
+  onClick={() => isAuthenticated ? navigate('/hesap') : window.location.href = 'https://account.editioncoffee.com.tr/profile'}
   className="flex items-center gap-3 font-mono text-[0.65rem] tracking-[0.15em] uppercase text-[#C17A3A] hover:text-[#1A0F08] text-left"
 >
   <User className="h-4 w-4" /> {isAuthenticated ? 'Hesabım' : 'Giriş Yap / Üye Ol'}
@@ -618,8 +706,9 @@ const Layout = ({ children }: { children: ReactNode }) => {
       </main>
 
       <Footer />
-      
+
       <CookieBanner />
+      <MembershipPopup />
     </div>
   );
 };

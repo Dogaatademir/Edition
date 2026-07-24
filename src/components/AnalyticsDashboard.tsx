@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -17,8 +17,8 @@ const EVENT_LABELS: Record<string, string> = {
   // — Shopify Pixel (Otomatik) —
   checkout_start:    '💳 Shopify ödeme ekranı açıldı',
   purchase:          '✅ Sipariş tamamlandı (Shopify)',
-  pixel_cart_add:    '🛒 Sepete eklendi (Shopify)',      
-  pixel_page_view:   '📄 Shopify sayfa görüntülendi',  
+  pixel_cart_add:    '🛒 Sepete eklendi (Shopify)',
+  pixel_page_view:   '📄 Shopify sayfa görüntülendi',
 };
 
 const RANGE_LABELS: Record<DateRange, string> = {
@@ -27,17 +27,34 @@ const RANGE_LABELS: Record<DateRange, string> = {
   month: 'bu ay',
 };
 
-const fmt    = new Intl.NumberFormat('tr-TR');
-const fmtCur = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 });
+// Fix 7: Intl formatters inside a factory to avoid SSR locale divergence
+function createFormatters() {
+  return {
+    fmt:    new Intl.NumberFormat('tr-TR'),
+    fmtCur: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 }),
+  };
+}
 
+// Fix 6: Single EmptyState component instead of repeated inline blocks
+function EmptyState({ loading }: { loading: boolean }) {
+  return (
+    <div style={{ color: '#aaa', fontSize: 13 }}>
+      {loading ? 'yükleniyor...' : 'henüz veri yok'}
+    </div>
+  );
+}
+
+// Fix 2: Tooltip opens from the KpiCard div (position:relative), not from the ⓘ span
 function KpiCard({ label, value, sub, tooltip }: { label: string; value: string; sub?: string; tooltip?: string }) {
   const [show, setShow] = useState(false);
   return (
-    <div style={{
-      flex: 1, minWidth: 0, padding: '18px 20px',
-      border: '0.5px solid #e5e5e5', borderRadius: 8,
-      position: 'relative',
-    }}>
+    <div
+      style={{
+        flex: 1, minWidth: 0, padding: '18px 20px',
+        border: '0.5px solid #e5e5e5', borderRadius: 8,
+        position: 'relative',
+      }}
+    >
       <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
         {label}
         {tooltip && (
@@ -47,24 +64,24 @@ function KpiCard({ label, value, sub, tooltip }: { label: string; value: string;
             style={{ cursor: 'default', color: '#ccc', fontSize: 10, lineHeight: 1, userSelect: 'none' }}
           >
             ⓘ
-            {show && (
-              <span style={{
-                position: 'absolute', top: '100%', left: 0, zIndex: 10,
-                background: '#1a1a1a', color: '#eee',
-                fontSize: 11, lineHeight: 1.5, padding: '8px 12px',
-                borderRadius: 6, width: 280, whiteSpace: 'normal',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                marginTop: 4, fontWeight: 400, letterSpacing: 0,
-                textTransform: 'none',
-              }}>
-                {tooltip}
-              </span>
-            )}
           </span>
         )}
       </div>
       <div style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>{sub}</div>}
+      {tooltip && show && (
+        <span style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 10,
+          background: '#1a1a1a', color: '#eee',
+          fontSize: 11, lineHeight: 1.5, padding: '8px 12px',
+          borderRadius: 6, width: 280, whiteSpace: 'normal',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          marginTop: 4, fontWeight: 400, letterSpacing: 0,
+          textTransform: 'none',
+        }}>
+          {tooltip}
+        </span>
+      )}
     </div>
   );
 }
@@ -82,23 +99,68 @@ export default function AnalyticsDashboard() {
   const { activeVisitors, liveEvents, isConnected, isReconnecting } = useRealtimeAnalytics();
   const agg = useShopifyAnalytics(dateRange);
 
-  // Track which event ids were present on initial load so new ones can be animated
-  const initialEventIds = useRef<Set<number> | null>(null);
+  // Fix 7: formatters created once per component instance (safe for SSR)
+  const { fmt, fmtCur } = useMemo(() => createFormatters(), []);
+
+  // Fix 4: track seen event ids in a Set state so new arrivals are reliably detected
+  const [seenEventIds, setSeenEventIds] = useState<Set<number> | null>(null);
   useEffect(() => {
-    if (initialEventIds.current === null && liveEvents.length > 0) {
-      initialEventIds.current = new Set(liveEvents.map(e => e.id));
+    if (seenEventIds === null && liveEvents.length > 0) {
+      setSeenEventIds(new Set(liveEvents.map(e => e.id)));
     }
-  }, [liveEvents]);
-  const isNewEvent = (id: number) =>
-    initialEventIds.current !== null && !initialEventIds.current.has(id);
+  }, [liveEvents, seenEventIds]);
+
+  // When new events arrive, add them to the seen set after the flash animation (1.8s)
+  const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (seenEventIds === null) return;
+    const newIds = liveEvents.map(e => e.id).filter(id => !seenEventIds.has(id));
+    if (newIds.length === 0) return;
+    if (pendingRef.current) clearTimeout(pendingRef.current);
+    pendingRef.current = setTimeout(() => {
+      setSeenEventIds(prev => {
+        if (!prev) return prev;
+        const next = new Set(prev);
+        newIds.forEach(id => next.add(id));
+        return next;
+      });
+    }, 1800);
+    return () => {
+      if (pendingRef.current) clearTimeout(pendingRef.current);
+    };
+  }, [liveEvents, seenEventIds]);
+
+  const isNewEvent = useCallback(
+    (id: number) => seenEventIds !== null && !seenEventIds.has(id),
+    [seenEventIds],
+  );
 
   const rangeLabel = RANGE_LABELS[dateRange];
   const timeLabel  = agg.lastUpdated
     ? agg.lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
     : '—';
 
-  const tickSkip      = agg.dailyStats.length <= 7 ? 1 : 5;
-  const tickFormatter = (val: string, idx: number) => idx % tickSkip === 0 ? val : '';
+  // Fix 3: memoize tick skip values so they don't re-create on every render
+  const tickSkip = useMemo(
+    () => agg.dailyStats.length <= 7 ? 1 : 5,
+    [agg.dailyStats.length],
+  );
+  const tickFormatter = useCallback(
+    (val: string, idx: number) => idx % tickSkip === 0 ? val : '',
+    [tickSkip],
+  );
+
+  // Fix 5: safe display values that never show NaN while loading
+  const safeAbandonmentRate  = agg.loading ? '—' : `%${agg.abandonmentRate.toFixed(1)}`;
+  const safeConversionRate   = agg.loading ? '—' : `%${agg.conversionRate.toFixed(2)}`;
+  const safeTotalRevenue     = agg.loading ? '—' : fmtCur.format(agg.totalRevenue);
+  const safeAov              = agg.loading ? '—' : fmtCur.format(agg.aov);
+  const safeTotalOrders      = agg.loading ? '—' : fmt.format(agg.totalOrders);
+  const safeTotalSessions    = agg.loading ? '—' : fmt.format(agg.totalSessions);
+  const safeCartAddSessions  = agg.loading ? '—' : fmt.format(agg.cartAddSessions);
+  const safeOdemeView        = agg.loading ? '—' : fmt.format(agg.odemeViewSessions);
+  const safeCheckout         = agg.loading ? '—' : fmt.format(agg.checkoutSessions);
+  const safeAbandonedCarts   = agg.loading ? '—' : fmt.format(agg.abandonedCarts);
 
   return (
     <>
@@ -151,33 +213,33 @@ export default function AnalyticsDashboard() {
 
         {/* KPI Cards — row 1 */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-          <KpiCard label="aktif ziyaretçi"  value={String(activeVisitors)}                                       sub="şu an" />
-          <KpiCard label="oturumlar"        value={agg.loading ? '—' : fmt.format(agg.totalSessions)}            sub={rangeLabel} />
-          <KpiCard label="siparişler"       value={agg.loading ? '—' : fmt.format(agg.totalOrders)}              sub={rangeLabel} />
-          <KpiCard label="brüt satışlar"    value={agg.loading ? '—' : fmtCur.format(agg.totalRevenue)}          sub={rangeLabel} />
+          <KpiCard label="aktif ziyaretçi"  value={String(activeVisitors)}   sub="şu an" />
+          <KpiCard label="oturumlar"        value={safeTotalSessions}         sub={rangeLabel} />
+          <KpiCard label="siparişler"       value={safeTotalOrders}           sub={rangeLabel} />
+          <KpiCard label="brüt satışlar"    value={safeTotalRevenue}          sub={rangeLabel} />
         </div>
 
         {/* KPI Cards — row 2 */}
         <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
           <KpiCard
             label="dönüşüm oranı"
-            value={agg.loading ? '—' : `%${agg.conversionRate.toFixed(2)}`}
+            value={safeConversionRate}
             sub={rangeLabel}
           />
           <KpiCard
             label="ort. sipariş değeri"
-            value={agg.loading ? '—' : fmtCur.format(agg.aov)}
+            value={safeAov}
             sub={rangeLabel}
           />
           <KpiCard
             label="sepet terk oranı"
-            value={agg.loading ? '—' : `%${agg.abandonmentRate.toFixed(1)}`}
+            value={safeAbandonmentRate}
             sub={rangeLabel}
             tooltip="Sepete ürün ekleyip ödeme adımına geçmeyen oturumların oranı. Formül: (sepete ekleyen - checkout başlatan) / sepete ekleyen × 100"
           />
           <KpiCard
             label="terk edilen sepet"
-            value={agg.loading ? '—' : fmt.format(agg.abandonedCarts)}
+            value={safeAbandonedCarts}
             sub={`${rangeLabel} · sepete ekleyip checkout'a geçmeyen oturum`}
             tooltip="Sepete en az bir ürün ekleyip ödeme adımına hiç geçmeden ayrılan unique oturum sayısı. Formül: sepete ekleyen oturum − checkout başlatan oturum"
           />
@@ -206,8 +268,8 @@ export default function AnalyticsDashboard() {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div style={{ color: '#aaa', fontSize: 13, height: 200, display: 'flex', alignItems: 'center' }}>
-              {agg.loading ? 'yükleniyor...' : 'henüz veri yok'}
+            <div style={{ height: 200, display: 'flex', alignItems: 'center' }}>
+              <EmptyState loading={agg.loading} />
             </div>
           )}
         </div>
@@ -231,8 +293,8 @@ export default function AnalyticsDashboard() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ color: '#aaa', fontSize: 13, height: 180, display: 'flex', alignItems: 'center' }}>
-                {agg.loading ? 'yükleniyor...' : 'henüz veri yok'}
+              <div style={{ height: 180, display: 'flex', alignItems: 'center' }}>
+                <EmptyState loading={agg.loading} />
               </div>
             )}
           </div>
@@ -256,9 +318,7 @@ export default function AnalyticsDashboard() {
                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>%{step.pct}</div>
               </div>
             ))}
-            {agg.funnel.length === 0 && (
-              <div style={{ color: '#aaa', fontSize: 13 }}>{agg.loading ? 'yükleniyor...' : 'henüz veri yok'}</div>
-            )}
+            {agg.funnel.length === 0 && <EmptyState loading={agg.loading} />}
           </div>
         </div>
 
@@ -281,8 +341,8 @@ export default function AnalyticsDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ color: '#aaa', fontSize: 13, height: 160, display: 'flex', alignItems: 'center' }}>
-                {agg.loading ? 'yükleniyor...' : 'henüz veri yok'}
+              <div style={{ height: 160, display: 'flex', alignItems: 'center' }}>
+                <EmptyState loading={agg.loading} />
               </div>
             )}
           </div>
@@ -290,22 +350,22 @@ export default function AnalyticsDashboard() {
           <div style={{ flex: 1, minWidth: 200, border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
             <SectionTitle>toplam satış dökümü</SectionTitle>
             {[
-              { label: 'Brüt satışlar',          value: fmtCur.format(agg.totalRevenue) },
-              { label: 'Ort. sipariş değ.',       value: fmtCur.format(agg.aov) },
-              { label: 'Siparişler',              value: fmt.format(agg.totalOrders) },
-              { label: 'Sepete eklendi',          value: fmt.format(agg.cartAddSessions) },
-              { label: 'Checkout başladı',        value: fmt.format(agg.odemeViewSessions) },
-              { label: 'Shopify ödeme sayfası',   value: fmt.format(agg.checkoutSessions) },
-              { label: 'Terk edilen sepet',       value: fmt.format(agg.abandonedCarts) },
-              { label: 'Sepet terk oranı',        value: `%${agg.abandonmentRate.toFixed(1)}` },
-              { label: 'Dönüşüm',                 value: `%${agg.conversionRate.toFixed(2)}` },
+              { label: 'Brüt satışlar',          value: safeTotalRevenue },
+              { label: 'Ort. sipariş değ.',       value: safeAov },
+              { label: 'Siparişler',              value: safeTotalOrders },
+              { label: 'Sepete eklendi',          value: safeCartAddSessions },
+              { label: 'Checkout başladı',        value: safeOdemeView },
+              { label: 'Shopify ödeme sayfası',   value: safeCheckout },
+              { label: 'Terk edilen sepet',       value: safeAbandonedCarts },
+              { label: 'Sepet terk oranı',        value: safeAbandonmentRate },
+              { label: 'Dönüşüm',                 value: safeConversionRate },
             ].map(row => (
               <div key={row.label} style={{
                 display: 'flex', justifyContent: 'space-between',
                 padding: '7px 0', borderBottom: '0.5px solid #f0f0f0', fontSize: 12,
               }}>
                 <span style={{ color: '#555' }}>{row.label}</span>
-                <span style={{ color: '#333' }}>{agg.loading ? '—' : row.value}</span>
+                <span style={{ color: '#333' }}>{row.value}</span>
               </div>
             ))}
           </div>
@@ -315,7 +375,7 @@ export default function AnalyticsDashboard() {
         <div style={{ marginBottom: '2.5rem', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
           <SectionTitle>en çok satan ürünler ({rangeLabel})</SectionTitle>
           {agg.topProducts.length === 0 ? (
-            <div style={{ color: '#aaa', fontSize: 13 }}>{agg.loading ? 'yükleniyor...' : 'henüz veri yok'}</div>
+            <EmptyState loading={agg.loading} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {agg.topProducts.map(({ name, revenue, orders }) => {
@@ -351,7 +411,7 @@ export default function AnalyticsDashboard() {
           <div style={{ flex: 1, minWidth: 240, border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
             <SectionTitle>sayfalar (tüm zamanlar)</SectionTitle>
             {agg.topPages.length === 0 ? (
-              <div style={{ color: '#aaa', fontSize: 13 }}>{agg.loading ? 'yükleniyor...' : 'henüz veri yok'}</div>
+              <EmptyState loading={agg.loading} />
             ) : (
               agg.topPages.map(({ page, count }) => {
                 const max = agg.topPages[0]?.count ?? 1;
