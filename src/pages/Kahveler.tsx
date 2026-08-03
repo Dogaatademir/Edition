@@ -4,9 +4,51 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { SlidersHorizontal, ArrowDownAZ, Check, ChevronDown, X } from 'lucide-react';
 import { fetchShopifyProducts, type CoffeeProduct } from '../lib/shopify';
 import QuickAddModal from '../components/QuickAddModal';
+import { useSeo } from '../hooks/useSeo';
 
 type SortOption   = 'default' | 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc';
 type FilterOption = 'all' | 'turk-kahvesi' | 'filtre' | 'espresso' | 'paket';
+
+// URL path segmenti <-> filtre değeri eşlemesi (örn. /kahveler/filtre-kahve)
+const PATH_TO_FILTER: Record<string, FilterOption> = {
+  'turk-kahvesi': 'turk-kahvesi',
+  'filtre-kahve': 'filtre',
+  'espresso': 'espresso',
+  'avantajli-paketler': 'paket',
+};
+
+const SEO_BY_FILTER: Record<FilterOption, { title: string; description: string; h1: string; path: string }> = {
+  all: {
+    title: 'Kahvelerimiz | Edition Coffee Roastery',
+    description: 'Türk kahvesi, filtre kahve, espresso ve avantajlı paketlerden oluşan Edition Coffee Roastery seçkisini keşfedin. Siparişinize özel taze kavrulur.',
+    h1: 'Kahvelerimiz',
+    path: '/kahveler',
+  },
+  'turk-kahvesi': {
+    title: 'Türk Kahvesi | Edition Coffee Roastery',
+    description: 'Siparişinize özel taze kavrulmuş, geleneksel yöntemlerle hazırlanan Türk kahvesi çeşitlerini inceleyin. 850 TL ve üzeri siparişlerde ücretsiz kargo.',
+    h1: 'Türk Kahvesi',
+    path: '/kahveler/turk-kahvesi',
+  },
+  filtre: {
+    title: 'Filtre Kahve | Edition Coffee Roastery',
+    description: 'Tek köken ve harman filtre kahve çeşitlerimizi keşfedin. Siparişinize özel taze kavrulmuş filtre kahveler, aynı gün kargoya verilir.',
+    h1: 'Filtre Kahve',
+    path: '/kahveler/filtre-kahve',
+  },
+  espresso: {
+    title: 'Espresso | Edition Coffee Roastery',
+    description: 'Espresso için özel harmanlanmış ve kavrulmuş kahve çekirdeklerimizi inceleyin. Siparişinize özel taze kavrum, 850 TL ve üzeri ücretsiz kargo.',
+    h1: 'Espresso',
+    path: '/kahveler/espresso',
+  },
+  paket: {
+    title: 'Avantajlı Paketler | Edition Coffee Roastery',
+    description: 'Türk kahvesi, filtre kahve ve espresso çeşitlerinden oluşan avantajlı kahve paketlerini keşfedin.',
+    h1: 'Avantajlı Paketler',
+    path: '/kahveler/avantajli-paketler',
+  },
+};
 
 const parsePrice = (priceStr: string): number => {
   if (!priceStr) return 999999;
@@ -121,6 +163,7 @@ const ProductCard = ({ p, onQuickAdd }: { p: CoffeeProduct; onQuickAdd: (p: Coff
 
 // ─── ANA BİLEŞEN ──────────────────────────────────────────────────────────────
 const Kahveler = () => {
+  const navigate = useNavigate();
   const [allProducts, setAllProducts]           = useState<CoffeeProduct[]>([]);
   const [displayedProducts, setDisplayedProducts] = useState<CoffeeProduct[]>([]);
   const [loading, setLoading]                   = useState(true);
@@ -157,11 +200,21 @@ const Kahveler = () => {
   }, []);
 
   useEffect(() => {
+    const pathSlug = location.pathname.split('/kahveler/')[1];
+    if (pathSlug && PATH_TO_FILTER[pathSlug]) {
+      setFilterOption(PATH_TO_FILTER[pathSlug]);
+      return;
+    }
     const params = new URLSearchParams(location.search);
     const cat = params.get('kategori');
     if (cat && ['turk-kahvesi', 'filtre', 'espresso', 'paket'].includes(cat))
       setFilterOption(cat as FilterOption);
+    else if (!pathSlug)
+      setFilterOption('all');
   }, [location]);
+
+  const seo = SEO_BY_FILTER[filterOption];
+  useSeo(seo.title, seo.description, seo.path);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -202,7 +255,7 @@ const Kahveler = () => {
     </button>
   );
   const FilterItem = ({ label, value }: { label: string; value: FilterOption }) => (
-    <button onClick={() => { setFilterOption(value); setIsFilterOpen(false); }}
+    <button onClick={() => { setIsFilterOpen(false); navigate(SEO_BY_FILTER[value].path); }}
       className={`flex w-full items-center justify-between px-5 py-3 font-mono text-[0.6rem] tracking-[0.1em] uppercase transition-colors hover:bg-[#f0e8dc] ${filterOption === value ? 'text-[#1b1b1b] font-bold' : 'text-[#7b6a5c]'}`}>
       {label} {filterOption === value && <Check className="h-3 w-3" strokeWidth={2} />}
     </button>
@@ -213,7 +266,7 @@ const Kahveler = () => {
       <div className="border-b border-[#1b1b1b]/10 px-5 md:px-10 py-8 md:py-10">
         <div className="mx-auto max-w-[1440px]">
           <h1 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.1] tracking-[-0.02em] text-[#1b1b1b]">
-            Kahvelerimiz
+            {seo.h1}
           </h1>
         </div>
       </div>
@@ -258,7 +311,7 @@ const Kahveler = () => {
                 <span className="hidden sm:inline">{filterOption !== 'all' ? 'Filtre Aktif' : 'Filtrele'}</span>
                 {filterOption !== 'all' && (
                   <X className="h-3 w-3 opacity-70 hover:opacity-100"
-                    onClick={(e) => { e.stopPropagation(); setFilterOption('all'); }} />
+                    onClick={(e) => { e.stopPropagation(); navigate('/kahveler'); }} />
                 )}
               </button>
               {isFilterOpen && (
@@ -334,7 +387,7 @@ const Kahveler = () => {
             <div className="mb-4 font-mono text-[0.7rem] tracking-[0.15em] uppercase text-[#7b6a5c]">Sonuç Bulunamadı</div>
             <p className="mb-8 font-serif text-[1.5rem] text-[#1b1b1b]">Bu kritere uygun kahve yok.</p>
             <button
-              onClick={() => { setFilterOption('all'); setSortOption('default'); }}
+              onClick={() => { setSortOption('default'); navigate('/kahveler'); }}
               className="border border-[#1b1b1b] bg-[#1b1b1b] px-8 py-3 font-mono text-[0.62rem] uppercase tracking-[0.15em] text-[#f7f0e7] transition-colors hover:bg-transparent hover:text-[#1b1b1b]"
             >
               Tüm Seçkiyi Göster

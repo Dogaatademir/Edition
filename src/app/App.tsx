@@ -12,6 +12,7 @@ import { initPixel, pageView } from '../lib/metaPixel';
 // Mevcut Sayfalar
 const Anasayfa = lazy(() => import('../pages/Anasayfa'));
 const Hakkimizda = lazy(() => import('../pages/Hakkimizda'));
+const Referanslar = lazy(() => import('../pages/Referanslar'));
 const Urun = lazy(() => import('../pages/Urun'));
 const Sss = lazy(() => import('../pages/Sss'));
 const NotFound = lazy(() => import('../pages/NotFound'));
@@ -102,7 +103,12 @@ function App() {
                   {/* ANA SAYFALAR */}
                   <Route path="/" element={<Anasayfa />} />
                   <Route path="/kahveler" element={<Kahveler />} />
+                  <Route path="/kahveler/turk-kahvesi" element={<Kahveler />} />
+                  <Route path="/kahveler/filtre-kahve" element={<Kahveler />} />
+                  <Route path="/kahveler/espresso" element={<Kahveler />} />
+                  <Route path="/kahveler/avantajli-paketler" element={<Kahveler />} />
                   <Route path="/hakkimizda" element={<Hakkimizda />} />
+                  <Route path="/referanslar" element={<Referanslar />} />
                   <Route path="/odeme" element={<Odeme />} />
 
                   {/* ÜRÜN DETAY */}

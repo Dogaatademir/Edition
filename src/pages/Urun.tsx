@@ -76,7 +76,7 @@ const Urun = () => {
   const [quantity, setQuantity] = useState(1);
   const [openSection, setOpenSection] = useState<string | null>('desc');
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  const [grind, setGrind] = useState<string>('Çekirdek');
+  const [grind, setGrind] = useState<string>('');
   const [viewers, setViewers] = useState(Math.floor(Math.random() * 11) + 10);
   
   const [showStickyBar, setShowStickyBar] = useState(false);
@@ -177,13 +177,15 @@ const Urun = () => {
   };
 
   const handleAddToCart = () => {
+    const showsGrind = product.category.includes('filtre') || product.category.includes('espresso');
+    if (showsGrind && !grind) return;
+
     let cartProductName = product.name;
-    
+
     if (selectedVariant && selectedVariant.weight !== "Default Title") {
       cartProductName += ` - ${selectedVariant.weight}`;
     }
-    
-    const showsGrind = product.category.includes('filtre') || product.category.includes('espresso');
+
     if (showsGrind) cartProductName += ` (${grind})`;
 
     const cartProductObj = {
@@ -204,7 +206,7 @@ const Urun = () => {
   const mainImage = selectedVariant?.image ?? product.image;
   const secondImage = selectedVariant?.hoverImage ?? null;
 
-  const freeShippingThreshold = 750;
+  const freeShippingThreshold = 850;
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - totalPrice);
   const progressPercentage = Math.min(100, (totalPrice / freeShippingThreshold) * 100);
 
@@ -323,7 +325,7 @@ const Urun = () => {
 
                 {isFiltre && (
                   <div className="mb-6">
-                    <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#7b6a5c] uppercase block mb-3">Öğütme Derecesi</span>
+                    <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#7b6a5c] uppercase block mb-3">Öğütme Derecesi *</span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {grindOptions.map(({ id, image }) => (
                         <button
@@ -350,11 +352,16 @@ const Urun = () => {
               <div className="flex flex-col gap-5 mb-12" ref={addToCartRef}>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
-                  <button 
+                  <button
                     onClick={handleAddToCart}
-                    className="flex-1 flex items-center justify-center gap-3 py-4 font-mono text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] hover:bg-[#3a3530] hover:border-[#3a3530]"
+                    disabled={isFiltre && !grind}
+                    className={`flex-1 flex items-center justify-center gap-3 py-4 font-mono text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border ${
+                      isFiltre && !grind
+                        ? 'border-[#1b1b1b]/10 bg-[#1b1b1b]/10 text-[#7b6a5c] cursor-not-allowed'
+                        : 'border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] hover:bg-[#3a3530] hover:border-[#3a3530]'
+                    }`}
                   >
-                    Sepete Ekle
+                    {isFiltre && !grind ? 'Lütfen Öğütme Türünüzü Seçin' : 'Sepete Ekle'}
                   </button>
                 </div>
 
@@ -498,11 +505,14 @@ const Urun = () => {
 
                 {isFiltre && (
                   <div className="relative">
-                    <select 
-                      value={grind} 
+                    <select
+                      value={grind}
                       onChange={(e) => setGrind(e.target.value)}
-                      className="appearance-none bg-transparent border border-[#1b1b1b]/15 px-2 py-1 pr-6 font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.05em] uppercase text-[#5c4635] hover:text-[#1b1b1b] hover:border-[#1b1b1b] focus:outline-none transition-colors cursor-pointer"
+                      className={`appearance-none bg-transparent border px-2 py-1 pr-6 font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.05em] uppercase hover:text-[#1b1b1b] hover:border-[#1b1b1b] focus:outline-none transition-colors cursor-pointer ${
+                        grind ? 'border-[#1b1b1b]/15 text-[#5c4635]' : 'border-[#c17a3a] text-[#c17a3a]'
+                      }`}
                     >
+                      <option value="" disabled>Öğütme Seçin</option>
                       {grindOptions.map(({ id }) => (
                         <option key={id} value={id}>{id}</option>
                       ))}
@@ -526,11 +536,16 @@ const Urun = () => {
               <span className="font-mono font-semibold text-[1.1rem] text-[#1b1b1b] leading-none">{displayPrice}</span>
             </div>
             
-            <button 
+            <button
               onClick={handleAddToCart}
-              className="flex items-center justify-center font-mono text-[0.6rem] md:text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] px-6 py-3.5 md:px-10 md:py-4 hover:bg-[#3a3530] hover:border-[#3a3530] whitespace-nowrap"
+              disabled={isFiltre && !grind}
+              className={`flex items-center justify-center font-mono text-[0.6rem] md:text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border px-6 py-3.5 md:px-10 md:py-4 whitespace-nowrap ${
+                isFiltre && !grind
+                  ? 'border-[#1b1b1b]/10 bg-[#1b1b1b]/10 text-[#7b6a5c] cursor-not-allowed'
+                  : 'border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] hover:bg-[#3a3530] hover:border-[#3a3530]'
+              }`}
             >
-              Sepete Ekle
+              {isFiltre && !grind ? ' Lütfen Türünüzü Öğütme Seçin' : 'Sepete Ekle'}
             </button>
           </div>
 

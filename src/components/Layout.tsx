@@ -473,6 +473,7 @@ const Footer = () => {
               <li><Link to="/kahveler" className="font-sans font-light text-[0.95rem] text-[#FDFAF6] hover:text-[#7B6A5C] transition-colors">Tüm Seçki</Link></li>
               <li><Link to="/hakkimizda" className="font-sans font-light text-[0.95rem] text-[#FDFAF6] hover:text-[#7B6A5C] transition-colors">Hakkımızda</Link></li>
               <li><Link to="/toptan" className="font-sans font-light text-[0.95rem] text-[#FDFAF6] hover:text-[#7B6A5C] transition-colors">Toptan Satış</Link></li>
+              <li><Link to="/referanslar" className="font-sans font-light text-[0.95rem] text-[#FDFAF6] hover:text-[#7B6A5C] transition-colors">Referanslar</Link></li>
               <li><Link to="/sss" className="font-sans font-light text-[0.95rem] text-[#FDFAF6] hover:text-[#7B6A5C] transition-colors">S.S.S.</Link></li>
             </ul>
           </div>
@@ -596,10 +597,10 @@ const Layout = ({ children }: { children: ReactNode }) => {
                 </Link>
                 <div className="absolute left-0 top-full opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300">
                   <div className="bg-[#FDFAF6] border border-[#1A0F08]/10 border-t-0 p-5 flex flex-col gap-3 min-w-[200px] shadow-sm">
-                    <Link to="/kahveler?kategori=turk-kahvesi" className={dropdownLinkClass}>Türk Kahvesi</Link>
-                    <Link to="/kahveler?kategori=filtre" className={dropdownLinkClass}>Filtre Kahve</Link>
-                    <Link to="/kahveler?kategori=espresso" className={dropdownLinkClass}>Espresso</Link>
-                    <Link to="/kahveler?kategori=paket" className={dropdownLinkClass}>Avantajlı Paketler</Link>
+                    <Link to="/kahveler/turk-kahvesi" className={dropdownLinkClass}>Türk Kahvesi</Link>
+                    <Link to="/kahveler/filtre-kahve" className={dropdownLinkClass}>Filtre Kahve</Link>
+                    <Link to="/kahveler/espresso" className={dropdownLinkClass}>Espresso</Link>
+                    <Link to="/kahveler/avantajli-paketler" className={dropdownLinkClass}>Avantajlı Paketler</Link>
                   </div>
                 </div>
               </div>
@@ -672,10 +673,10 @@ const Layout = ({ children }: { children: ReactNode }) => {
               
               <div className={`flex flex-col gap-4 overflow-hidden transition-all duration-300 ${isMobileKahvelerOpen ? 'max-h-[250px] mt-4 opacity-100' : 'max-h-0 opacity-0'}`}>
                 <Link to="/kahveler" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Tümünü Gör</Link>
-                <Link to="/kahveler?kategori=turk-kahvesi" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Türk Kahvesi</Link>
-                <Link to="/kahveler?kategori=filtre" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Filtre Kahve</Link>
-                <Link to="/kahveler?kategori=espresso" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Espresso</Link>
-                <Link to="/kahveler?kategori=paket" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Avantajlı Paketler</Link>
+                <Link to="/kahveler/turk-kahvesi" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Türk Kahvesi</Link>
+                <Link to="/kahveler/filtre-kahve" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Filtre Kahve</Link>
+                <Link to="/kahveler/espresso" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Espresso</Link>
+                <Link to="/kahveler/avantajli-paketler" className="font-sans font-light text-[0.95rem] text-[#C17A3A] pl-4 border-l border-[#1A0F08]/10 hover:text-[#1A0F08]">Avantajlı Paketler</Link>
               </div>
             </div>
 

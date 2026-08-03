@@ -19,7 +19,7 @@ const QuickAddModal = ({
   const [product, setProduct] = useState<CoffeeProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  const [grind, setGrind] = useState("Çekirdek");
+  const [grind, setGrind] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
 
@@ -40,6 +40,7 @@ const QuickAddModal = ({
   const handleAdd = () => {
     if (!product) return;
     const isFiltre = product.category.includes("filtre") || product.category.includes("espresso");
+    if (isFiltre && !grind) return;
     let name = product.name;
     if (selectedVariant && selectedVariant.weight !== "Default Title") name += ` - ${selectedVariant.weight}`;
     if (isFiltre) name += ` (${grind})`;
@@ -150,7 +151,7 @@ const QuickAddModal = ({
             {/* Öğütme seçimi */}
             {isFiltre && (
               <div>
-                <span className="font-mono text-[0.58rem] tracking-[0.15em] text-[#7b6a5c] block mb-2">ÖĞÜTME</span>
+                <span className="font-mono text-[0.58rem] tracking-[0.15em] text-[#7b6a5c] block mb-2">ÖĞÜTME *</span>
                 <div className="flex flex-wrap gap-2">
                   {grindOptions.map((g) => (
                     <button
@@ -182,13 +183,16 @@ const QuickAddModal = ({
               </div>
               <button
                 onClick={handleAdd}
+                disabled={isFiltre && !grind}
                 className={`flex-1 h-12 font-mono text-[0.62rem] tracking-[0.15em] transition-colors border ${
                   added
                     ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#fdfaf6]"
+                    : isFiltre && !grind
+                    ? "border-[#1b1b1b]/10 bg-[#1b1b1b]/10 text-[#7b6a5c] cursor-not-allowed"
                     : "border-[#c17a3a] bg-[#c17a3a] text-[#fdfaf6] hover:bg-[#a0612a] hover:border-[#a0612a]"
                 }`}
               >
-                {added ? "✓ EKLENDİ" : "SEPETE EKLE"}
+                {added ? "✓ EKLENDİ" : isFiltre && !grind ? "LÜTFEN ÖĞÜTME TÜRÜNÜZÜ SEÇİN" : "SEPETE EKLE"}
               </button>
             </div>
 

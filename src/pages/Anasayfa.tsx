@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { fetchShopifyProducts, type CoffeeProduct } from "../lib/shopify";
 import QuickAddModal from "../components/QuickAddModal";
+import { useSeo } from "../hooks/useSeo";
 
 // ─── HOOK ─────────────────────────────────────────────────────────────────────
 function useReveal(threshold = 0.12) {
@@ -208,7 +209,7 @@ const KAHVE_KATEGORILERI = [
     title: "Gelenekten Gelen Derinlik",
     text: "Yüzyıllık geleneği modern kavurma anlayışıyla buluşturuyoruz. Her fincan, doğru sıcaklıkta, köpüklü ve karakterli.",
     cta: "KEŞFEDİN",
-    path: "/kahveler?kategori=turk-kahvesi",
+    path: "/kahveler/turk-kahvesi",
     image: "https://plus.unsplash.com/premium_photo-1732818135469-3bfc10ed83a2?w=900&auto=format&fit=crop&q=60",
   },
   {
@@ -216,7 +217,7 @@ const KAHVE_KATEGORILERI = [
     title: "Sabahın En Saf Hali",
     text: "Tek köken çekirdekler, hassas demleme profilleri. V60'tan Chemex'e her yöntem için siparişe özel öğütülür.",
     cta: "DEMLEMEYİ SEÇ",
-    path: "/kahveler?kategori=filtre",
+    path: "/kahveler/filtre-kahve",
     image: "https://images.unsplash.com/photo-1638202518327-956c496a5240?w=900&auto=format&fit=crop&q=60",
   },
   {
@@ -224,7 +225,7 @@ const KAHVE_KATEGORILERI = [
     title: "Yoğun, Gövdeli, Unutulmaz",
     text: "Özenle seçilmiş harmanlar, yüksek basınçta sıkıştırılmış lezzet. Evinizdeki espresso deneyimini bir üst seviyeye taşıyın.",
     cta: "HARMANI İNCELE",
-    path: "/kahveler?kategori=espresso",
+    path: "/kahveler/espresso",
     image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?q=80&w=2000&auto=format&fit=crop",
   },
 ];
@@ -452,6 +453,11 @@ const heroSlides = [
 
 export default function Anasayfa() {
   useCart();
+  useSeo(
+    'Edition Coffee Roastery',
+    "Edition Coffee Roastery'de siparişinize özel taze kavrulmuş Türk kahvesi, filtre kahve ve espresso çeşitleri. 850 TL ve üzeri siparişlerde ücretsiz kargo, aynı gün kargoya verilir.",
+    '/'
+  );
   const navigate = useNavigate();
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -488,7 +494,15 @@ export default function Anasayfa() {
     return p.category.some((t) => t.toLowerCase().includes(filter));
   });
 
-  const featuredProducts = allProducts.slice(0, 4);
+  const featuredHandles = [
+    "dunya-filtre-kahveleri-tanisma",
+    "hisaralti®-turk-kahvesi-seti",
+    "edition-ozel-filtre-harman",
+    "ultragold-espresso-ozel-harman",
+  ];
+  const featuredProducts = featuredHandles
+    .map((handle) => allProducts.find((p) => p.handle === handle))
+    .filter((p): p is CoffeeProduct => Boolean(p));
 
   return (
     <div className="-mt-[130px] min-h-screen bg-[#f7f0e7] font-sans text-[#1b1b1b] selection:bg-[#1b1b1b] selection:text-[#f7f0e7]">

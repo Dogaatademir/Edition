@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://editioncoffee.com.tr/sitemap.xml
