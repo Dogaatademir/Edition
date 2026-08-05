@@ -455,7 +455,7 @@ export default function Anasayfa() {
   useCart();
   useSeo(
     'Edition Coffee Roastery',
-    "Edition Coffee Roastery'de siparişinize özel taze kavrulmuş Türk kahvesi, filtre kahve ve espresso çeşitleri. 850 TL ve üzeri siparişlerde ücretsiz kargo, aynı gün kargoya verilir.",
+    'Edition Coffee Roastery — taze kavrulmuş Türk kahvesi, filtre kahve ve espresso. Yüzyıllık geleneği modern kavurmayla buluşturuyoruz. 850 TL üzeri kargo ücretsiz.',
     '/'
   );
   const navigate = useNavigate();
