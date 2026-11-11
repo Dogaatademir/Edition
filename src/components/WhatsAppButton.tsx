@@ -7,6 +7,9 @@ const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}`;
 const WhatsAppButton = () => {
   const { pathname } = useLocation();
 
+  // Yönetim sayfasında (analiz paneli) gösterilmez
+  if (pathname.startsWith('/analiz')) return null;
+
   // Ürün ve ödeme sayfalarında alttaki sabit çubukların üstünde kalsın
   const isProduct = pathname.startsWith('/urun/');
   const isCheckout = pathname === '/odeme';

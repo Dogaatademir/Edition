@@ -79,7 +79,7 @@ export default function AnalyticsReset() {
   };
 
   return (
-    <div style={{ marginTop: '2.5rem', border: '0.5px solid #f2c4bf', borderRadius: 8, padding: '18px 20px' }}>
+    <div className="ad-card" style={{ marginTop: '2.5rem', border: '0.5px solid #f2c4bf', borderRadius: 8, padding: '18px 20px' }}>
       <div style={{ fontSize: 11, color: '#c0392b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
         veritabanı sıfırlama
       </div>
@@ -93,7 +93,7 @@ export default function AnalyticsReset() {
           value={before}
           max={maxValue}
           onChange={(e) => { setBefore(e.target.value); setError(null); }}
-          style={inputStyle}
+          style={{ ...inputStyle, flex: '1 1 180px', minWidth: 0 }}
           aria-label="Bu tarih ve saatten öncesini sil"
         />
         <input
@@ -102,7 +102,7 @@ export default function AnalyticsReset() {
           onChange={(e) => { setPassword(e.target.value); setError(null); }}
           placeholder="şifre"
           autoComplete="current-password"
-          style={{ ...inputStyle, width: 140 }}
+          style={{ ...inputStyle, flex: '1 1 120px', minWidth: 0 }}
           aria-label="Analiz şifresi"
         />
         <button

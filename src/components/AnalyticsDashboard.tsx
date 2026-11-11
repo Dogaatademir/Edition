@@ -4,7 +4,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import {
-  useAnalyticsData, type DateRange, type BreakdownRow, type RankedItem,
+  useAnalyticsData, MAX_LOOKBACK_DAYS,
+  type DateRange, type BreakdownRow, type RankedItem, type CustomRange,
 } from '../hooks/useAnalyticsData';
 import AnalyticsReset from './AnalyticsReset';
 
@@ -23,13 +24,35 @@ const RANGE_LABELS: Record<DateRange, string> = {
   today: 'bugün',
   week:  'son 7 gün',
   month: 'bu ay',
+  custom: 'özel',
 };
 
 const COMPARE_LABELS: Record<DateRange, string> = {
   today: 'düne göre (aynı saate kadar)',
   week:  'önceki 7 güne göre',
   month: 'geçen ayın aynı dönemine göre',
+  custom: 'hemen önceki eş uzunluktaki süreye göre',
 };
+
+// <input type="datetime-local"> için yerel saatte "YYYY-MM-DDTHH:mm"
+function toLocalInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatRange(r: CustomRange) {
+  const sameDay = r.start.toDateString() === r.end.toDateString();
+  const date = (d: Date) => d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  const time = (d: Date) => d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  return sameDay
+    ? `${date(r.start)} ${time(r.start)} – ${time(r.end)}`
+    : `${date(r.start)} ${time(r.start)} – ${date(r.end)} ${time(r.end)}`;
+}
+
+const dateInputStyle = {
+  fontFamily: 'monospace', fontSize: 12, padding: '6px 8px', border: '0.5px solid #e5e5e5',
+  borderRadius: 4, outline: 'none', background: 'transparent', color: '#333', minWidth: 0,
+} as const;
 
 const SOURCE_LABELS: Record<string, string> = {
   direkt: 'Direkt / yer imi',
@@ -88,7 +111,7 @@ function KpiCard({ label, value, sub, tooltip, delta }: {
 }) {
   const [show, setShow] = useState(false);
   return (
-    <div style={{ flex: '1 1 180px', minWidth: 0, padding: '18px 20px', border: '0.5px solid #e5e5e5', borderRadius: 8, position: 'relative' }}>
+    <div className="ad-card" style={{ minWidth: 0, padding: '18px 20px', border: '0.5px solid #e5e5e5', borderRadius: 8 }}>
       <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
         {label}
         {tooltip && (
@@ -96,24 +119,24 @@ function KpiCard({ label, value, sub, tooltip, delta }: {
             onMouseEnter={() => setShow(true)}
             onMouseLeave={() => setShow(false)}
             onClick={() => setShow((s) => !s)}
-            style={{ cursor: 'help', color: '#bbb', fontSize: 10, lineHeight: 1, userSelect: 'none' }}
+            role="button"
+            aria-label="Açıklama"
+            style={{ cursor: 'help', color: '#bbb', fontSize: 12, lineHeight: 1, userSelect: 'none', padding: '2px 4px', margin: '-2px -4px' }}
           >
             ⓘ
           </span>
         )}
       </div>
-      <div style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 'clamp(19px, 5.4vw, 28px)', fontWeight: 500, lineHeight: 1.15, overflowWrap: 'anywhere' }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>{sub}</div>}
       {delta && <div style={{ fontSize: 11, marginTop: 4 }}>{delta}</div>}
       {tooltip && show && (
-        <span style={{
-          position: 'absolute', top: '100%', left: 0, zIndex: 10,
-          background: '#1a1a1a', color: '#eee', fontSize: 11, lineHeight: 1.5, padding: '8px 12px',
-          borderRadius: 6, width: 280, maxWidth: '80vw', whiteSpace: 'normal',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)', marginTop: 4,
+        <div style={{
+          background: '#1a1a1a', color: '#eee', fontSize: 11, lineHeight: 1.5, padding: '8px 10px',
+          borderRadius: 6, marginTop: 8, whiteSpace: 'normal',
         }}>
           {tooltip}
-        </span>
+        </div>
       )}
     </div>
   );
@@ -134,13 +157,13 @@ function BreakdownTable({ rows, labelFor, loading }: {
             <th style={th}>ziyaret</th>
             <th style={th}>sepet</th>
             <th style={th}>sipariş</th>
-            <th style={th}>dönüşüm</th>
+            <th style={th}>dön.</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.key}>
-              <td style={{ ...td, textAlign: 'left', paddingLeft: 0, color: '#555', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <td style={{ ...td, textAlign: 'left', paddingLeft: 0, color: '#555', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }} title={labelFor(r.key)}>
                 {labelFor(r.key)}
               </td>
               <td style={td}>{fmt.format(r.visits)}</td>
@@ -165,7 +188,7 @@ function RankedBars({ items, loading, color = BLUE, valueFor, empty }: {
       {items.map((i) => (
         <div key={i.name}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 3 }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#333' }}>{i.name}</span>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#333' }} title={i.name}>{i.name}</span>
             <span style={{ color: '#888', flexShrink: 0 }}>{valueFor(i)}</span>
           </div>
           <div style={{ height: 4, background: '#f0f0f0', borderRadius: 2 }}>
@@ -183,7 +206,32 @@ const tooltipStyle = { fontFamily: 'monospace', fontSize: 12, border: '0.5px sol
 
 export default function AnalyticsDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>('month');
-  const data = useAnalyticsData(dateRange);
+  // Özel aralık: varsayılan bugün 00:00 → şimdi
+  const [customStartInput, setCustomStartInput] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return toLocalInput(d);
+  });
+  const [customEndInput, setCustomEndInput] = useState(() => toLocalInput(new Date()));
+  // Seçilebilecek en eski an (sayfa açıldığında sabitlenir)
+  const [minTime] = useState(() => Date.now() - MAX_LOOKBACK_DAYS * 86_400_000);
+  const minInput = toLocalInput(new Date(minTime));
+  const maxInput = toLocalInput(new Date());
+
+  const { customRange, customError } = useMemo(() => {
+    const start = new Date(customStartInput);
+    const end = new Date(customEndInput);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return { customRange: null, customError: 'başlangıç ve bitiş seç' };
+    }
+    if (start >= end) return { customRange: null, customError: 'başlangıç, bitişten önce olmalı' };
+    if (start.getTime() < minTime) {
+      return { customRange: null, customError: `en fazla ${MAX_LOOKBACK_DAYS} gün geriye gidilebilir` };
+    }
+    return { customRange: { start, end } as CustomRange, customError: null };
+  }, [customStartInput, customEndInput, minTime]);
+
+  const data = useAnalyticsData(dateRange, dateRange === 'custom' ? customRange : null);
   const { current: cur, previous: prev, loading } = data;
 
   // Canlı olaylarda yeni gelenleri kısa süre vurgula
@@ -205,14 +253,14 @@ export default function AnalyticsDashboard() {
     [seenEventIds],
   );
 
-  const rangeLabel = RANGE_LABELS[dateRange];
+  const rangeLabel = dateRange === 'custom' ? 'seçili aralık' : RANGE_LABELS[dateRange];
   const compareLabel = COMPARE_LABELS[dateRange];
   const timeLabel = data.lastUpdated
     ? data.lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
     : '—';
   const show = (value: string) => (loading && !data.lastUpdated ? '—' : value);
 
-  const tickSkip = useMemo(() => (data.daily.length <= 7 ? 1 : 5), [data.daily.length]);
+  const tickSkip = useMemo(() => Math.max(1, Math.ceil(data.daily.length / 7)), [data.daily.length]);
   const tickFormatter = useCallback((val: string, idx: number) => (idx % tickSkip === 0 ? val : ''), [tickSkip]);
 
   const trackingSinceLabel = data.trackingSince
@@ -224,9 +272,18 @@ export default function AnalyticsDashboard() {
       <style>{`
         @keyframes flashGreen { 0% { background: rgba(99,153,34,0.18); } 100% { background: transparent; } }
         .live-event-new { animation: flashGreen 1.8s ease forwards; }
+        .ad-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+        @media (max-width: 640px) {
+          .ad-root { padding-top: 1.25rem !important; }
+          .ad-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+          .ad-card { padding: 14px !important; }
+          .ad-section { margin-bottom: 1.25rem !important; }
+          .ad-row { gap: 8px !important; }
+          .ad-event-detail { flex-basis: 100% !important; padding-left: 70px; }
+        }
       `}</style>
 
-      <div style={{ fontFamily: 'monospace', padding: '2rem 16px', maxWidth: 960, margin: '0 auto' }}>
+      <div className="ad-root" style={{ fontFamily: 'monospace', padding: '2rem 16px', width: '100%', maxWidth: 960, minWidth: 0, boxSizing: 'border-box', margin: '0 auto' }}>
 
         {/* Başlık */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: 10 }}>
@@ -242,8 +299,8 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {(['today', 'week', 'month'] as DateRange[]).map((r) => (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {(['today', 'week', 'month', 'custom'] as DateRange[]).map((r) => (
                 <button
                   key={r}
                   onClick={() => setDateRange(r)}
@@ -263,6 +320,44 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
+        {dateRange === 'custom' && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: '1rem', fontSize: 11, color: '#888' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 220px', minWidth: 0 }}>
+              <span style={{ width: 64, flexShrink: 0 }}>başlangıç</span>
+              <input
+                type="datetime-local"
+                value={customStartInput}
+                min={minInput}
+                max={maxInput}
+                onChange={(e) => setCustomStartInput(e.target.value)}
+                style={{ ...dateInputStyle, flex: 1 }}
+              />
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 220px', minWidth: 0 }}>
+              <span style={{ width: 64, flexShrink: 0 }}>bitiş</span>
+              <input
+                type="datetime-local"
+                value={customEndInput}
+                min={minInput}
+                max={maxInput}
+                onChange={(e) => setCustomEndInput(e.target.value)}
+                style={{ ...dateInputStyle, flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={() => setCustomEndInput(toLocalInput(new Date()))}
+                title="Bitişi şu ana ayarla"
+                style={{ ...dateInputStyle, flexShrink: 0, cursor: 'pointer', color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 10, padding: '7px 6px' }}
+              >
+                şimdi
+              </button>
+            </label>
+            <div style={{ flexBasis: '100%', color: customError ? RED : '#aaa' }}>
+              {customError ?? `${formatRange(customRange!)} · grafikler ${customRange!.end.getTime() - customRange!.start.getTime() <= 48 * 3_600_000 ? 'saatlik' : 'günlük'}`}
+            </div>
+          </div>
+        )}
+
         {data.error && (
           <div style={{ fontSize: 12, color: RED, border: `0.5px solid ${RED}`, borderRadius: 6, padding: '8px 12px', marginBottom: '1rem' }}>
             Veriler alınamadı: {data.error}
@@ -274,7 +369,7 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* KPI — satır 1 */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div className="ad-kpis" style={{ marginBottom: 12 }}>
           <KpiCard label="aktif ziyaretçi" value={String(data.activeVisitors)} sub="şu an" />
           <KpiCard
             label="ziyaretler"
@@ -288,7 +383,7 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* KPI — satır 2 */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div className="ad-kpis" style={{ marginBottom: 12 }}>
           <KpiCard
             label="dönüşüm oranı"
             value={show(fmtPct(cur.conversionRate, 2))}
@@ -314,7 +409,7 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* KPI — satır 3: onay */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+        <div className="ad-kpis ad-section" style={{ marginBottom: '2.5rem' }}>
           <KpiCard
             label="çerez onay oranı"
             value={show(fmtPct(cur.consentRate))}
@@ -325,7 +420,7 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Ziyaretler */}
-        <div style={{ ...cardStyle, marginBottom: '2.5rem' }}>
+        <div className="ad-card ad-section" style={{ ...cardStyle, marginBottom: '2.5rem' }}>
           <SectionTitle>zamana göre ziyaretler</SectionTitle>
           {data.daily.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
@@ -345,8 +440,8 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Dönüşüm + huni */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
-          <div style={{ ...cardStyle, flex: '2 1 280px', minWidth: 0 }}>
+        <div className="ad-row ad-section" style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '2 1 280px', minWidth: 0 }}>
             <SectionTitle>zamana göre dönüşüm oranı</SectionTitle>
             {data.daily.length > 0 ? (
               <ResponsiveContainer width="100%" height={180}>
@@ -363,7 +458,7 @@ export default function AnalyticsDashboard() {
             )}
           </div>
 
-          <div style={{ ...cardStyle, flex: '1 1 220px', minWidth: 0 }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '1 1 220px', minWidth: 0 }}>
             <SectionTitle>satın alma hunisi</SectionTitle>
             {data.funnel.map((step) => (
               <div key={step.key} style={{ marginBottom: 12 }}>
@@ -382,8 +477,8 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Siparişler + özet */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
-          <div style={{ ...cardStyle, flex: '2 1 280px', minWidth: 0 }}>
+        <div className="ad-row ad-section" style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '2 1 280px', minWidth: 0 }}>
             <SectionTitle>zamana göre siparişler</SectionTitle>
             {data.daily.length > 0 ? (
               <ResponsiveContainer width="100%" height={160}>
@@ -400,7 +495,7 @@ export default function AnalyticsDashboard() {
             )}
           </div>
 
-          <div style={{ ...cardStyle, flex: '1 1 220px', minWidth: 0 }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '1 1 220px', minWidth: 0 }}>
             <SectionTitle>özet ({rangeLabel})</SectionTitle>
             {[
               { label: 'Ziyaretler',              value: fmt.format(cur.visits) },
@@ -423,25 +518,25 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Kaynaklar + cihazlar */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-          <div style={{ ...cardStyle, flex: '3 1 320px', minWidth: 0 }}>
+        <div className="ad-row" style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '3 1 320px', minWidth: 0 }}>
             <SectionTitle>trafik kaynakları</SectionTitle>
             <BreakdownTable rows={data.sources} loading={loading} labelFor={(k) => SOURCE_LABELS[k] ?? k} />
           </div>
-          <div style={{ ...cardStyle, flex: '2 1 260px', minWidth: 0 }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '2 1 260px', minWidth: 0 }}>
             <SectionTitle>cihazlar</SectionTitle>
             <BreakdownTable rows={data.devices} loading={loading} labelFor={(k) => SOURCE_LABELS[k] ?? k} />
           </div>
         </div>
-        <div style={{ fontSize: 10, color: '#aaa', marginBottom: '2.5rem', lineHeight: 1.6 }}>
+        <div className="ad-section" style={{ fontSize: 10, color: '#aaa', marginBottom: '2.5rem', lineHeight: 1.6 }}>
           {trackingSinceLabel
             ? `Kaynak ve cihaz bilgisi ${trackingSinceLabel} itibarıyla toplanıyor; daha eski oturumlar "bilinmiyor" görünür.`
             : 'Kaynak ve cihaz bilgisi yeni sürüm yayınlandıktan sonra toplanmaya başlar.'}
         </div>
 
         {/* Ürünler */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
-          <div style={{ ...cardStyle, flex: '1 1 280px', minWidth: 0 }}>
+        <div className="ad-row ad-section" style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '1 1 280px', minWidth: 0 }}>
             <SectionTitle>en çok satan ürünler ({rangeLabel})</SectionTitle>
             <RankedBars
               items={data.topProducts}
@@ -455,20 +550,20 @@ export default function AnalyticsDashboard() {
               </div>
             )}
           </div>
-          <div style={{ ...cardStyle, flex: '1 1 280px', minWidth: 0 }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '1 1 280px', minWidth: 0 }}>
             <SectionTitle>en çok sepete eklenen ({rangeLabel})</SectionTitle>
             <RankedBars items={data.topCartProducts} loading={loading} valueFor={(i) => `${fmt.format(i.count)} adet`} />
           </div>
         </div>
 
         {/* Sayfalar + canlı olaylar */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ ...cardStyle, flex: '1 1 260px', minWidth: 0 }}>
+        <div className="ad-row" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '1 1 260px', minWidth: 0 }}>
             <SectionTitle>sayfa görüntülemeleri ({rangeLabel})</SectionTitle>
             <RankedBars items={data.topPages} loading={loading} valueFor={(i) => fmt.format(i.count)} />
           </div>
 
-          <div style={{ ...cardStyle, flex: '1 1 260px', minWidth: 0 }}>
+          <div className="ad-card" style={{ ...cardStyle, flex: '1 1 260px', minWidth: 0 }}>
             <SectionTitle>son olaylar</SectionTitle>
             {data.liveEvents.length === 0 ? (
               <EmptyState loading={loading} text="olay bekleniyor..." />
@@ -477,14 +572,14 @@ export default function AnalyticsDashboard() {
                 <div
                   key={ev.id}
                   className={isNewEvent(ev.id) ? 'live-event-new' : undefined}
-                  style={{ display: 'flex', gap: 10, padding: '7px 0', borderBottom: '0.5px solid #f0f0f0', fontSize: 12, alignItems: 'baseline' }}
+                  style={{ display: 'flex', flexWrap: 'wrap', columnGap: 10, rowGap: 2, padding: '7px 0', borderBottom: '0.5px solid #f0f0f0', fontSize: 12, alignItems: 'baseline' }}
                 >
                   <span style={{ color: '#aaa', minWidth: 60, fontSize: 10, flexShrink: 0 }}>
                     {new Date(ev.ts).toLocaleTimeString('tr-TR')}
                   </span>
                   <span style={{ flexShrink: 0 }}>{EVENT_LABELS[ev.type] ?? ev.type}</span>
                   {ev.payload?.productTitle ? (
-                    <span style={{ color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="ad-event-detail" style={{ color: '#888', flex: '1 1 0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       — {String(ev.payload.productTitle)}
                     </span>
                   ) : ev.type === 'purchase' && ev.payload?.total ? (

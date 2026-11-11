@@ -2,10 +2,14 @@
 // /analiz panelinin verisi. Ham kayıtlar şifreli `analytics-data` fonksiyonundan gelir,
 // metrikler burada seçili dönem ve bir önceki eş dönem için hesaplanır.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-export type DateRange = 'today' | 'week' | 'month';
+export type DateRange = 'today' | 'week' | 'month' | 'custom';
+export interface CustomRange { start: Date; end: Date }
+
+/** analytics-data fonksiyonu en fazla bu kadar gün geriye veri döndürür. */
+export const MAX_LOOKBACK_DAYS = 75;
 
 export const ANALIZ_PASSWORD_KEY = 'analiz_pw';
 const REFRESH_MS = 30_000;
@@ -68,7 +72,14 @@ export interface AnalyticsData {
 
 // ─── Tarih aralıkları ─────────────────────────────────────────────────────────
 
-export function getPeriods(range: DateRange, now = new Date()) {
+export function getPeriods(range: DateRange, custom?: CustomRange | null, now = new Date()) {
+  // Özel aralık: önceki dönem, hemen önceki eş uzunluktaki süre
+  if (range === 'custom' && custom) {
+    const start = custom.start;
+    const end = new Date(Math.min(custom.end.getTime(), now.getTime()));
+    const length = Math.max(end.getTime() - start.getTime(), 0);
+    return { start, end, prevStart: new Date(start.getTime() - length), prevEnd: start };
+  }
   let start: Date;
   let prevStart: Date;
   if (range === 'today') {
@@ -86,7 +97,7 @@ export function getPeriods(range: DateRange, now = new Date()) {
   // Önceki dönem, geçerli dönemle aynı uzunlukta (ör. bugün 17:50'ye kadar ↔ dün 17:50'ye kadar)
   const elapsed = now.getTime() - start.getTime();
   const prevEnd = new Date(Math.min(prevStart.getTime() + elapsed, start.getTime()));
-  return { start, now, prevStart, prevEnd };
+  return { start, end: now, prevStart, prevEnd };
 }
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────
@@ -98,11 +109,25 @@ const num = (v: unknown) => {
 const pct = (part: number, whole: number) => (whole > 0 ? (part / whole) * 100 : 0);
 const round = (n: number, d = 2) => parseFloat(n.toFixed(d));
 
-function dayKey(d: Date) {
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-}
-function dayLabel(d: Date) {
-  return `${d.getDate()} ${d.toLocaleString('tr-TR', { month: 'short' })}`;
+// Grafik dilimleri: 2 günü aşmayan aralıklarda saatlik, daha uzunlarda günlük
+const HOURLY_MAX_MS = 48 * 3_600_000;
+
+function makeBuckets(start: Date, end: Date) {
+  const hourly = end.getTime() - start.getTime() <= HOURLY_MAX_MS;
+  const multiDay = start.toDateString() !== end.toDateString();
+  const key = (d: Date) =>
+    `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}${hourly ? `-${d.getHours()}` : ''}`;
+  const dayLabel = (d: Date) => `${d.getDate()} ${d.toLocaleString('tr-TR', { month: 'short' })}`;
+  const label = (d: Date) => {
+    if (!hourly) return dayLabel(d);
+    const hour = `${String(d.getHours()).padStart(2, '0')}:00`;
+    return multiDay ? `${dayLabel(d)} ${hour}` : hour;
+  };
+  const first = new Date(start);
+  if (hourly) first.setMinutes(0, 0, 0);
+  else first.setHours(0, 0, 0, 0);
+  const next = (d: Date) => (hourly ? d.setHours(d.getHours() + 1) : d.setDate(d.getDate() + 1));
+  return { key, label, first, next, hourly };
 }
 
 interface Order { sessionId: string; total: number; ts: Date; items: { title: string; quantity: number; total: number | null }[] }
@@ -169,8 +194,12 @@ function computeMetrics(pageViews: PageViewRow[], events: EventRow[], orders: Or
   const sessionsOf = (...types: string[]) =>
     new Set(events.filter((e) => types.includes(e.type) && e.session_id !== ANON).map((e) => e.session_id));
   const cart = sessionsOf('cart_add', 'pixel_cart_add');
-  const checkout = sessionsOf('checkout_start');
   const purchased = new Set(orders.map((o) => o.sessionId));
+  // Sipariş veren her oturum Shopify ödemesinden geçmiştir. checkout_start kaydı eksik olsa bile
+  // (ör. eski sürümde onaysız ziyaretçi, silinmiş eski kayıt, terk edilen ödeme e-postasından dönüş)
+  // ödemeye geçenler arasında sayılır; böylece "ödemeye geçen − sipariş = vazgeçen" her zaman tutar.
+  const checkout = sessionsOf('checkout_start');
+  purchased.forEach((id) => { if (id !== ANON) checkout.add(id); });
 
   let cartAbandoned = 0;
   cart.forEach((id) => { if (!checkout.has(id) && !purchased.has(id)) cartAbandoned++; });
@@ -263,12 +292,16 @@ const EMPTY: AnalyticsData = {
   loading: true, error: null, lastUpdated: null,
 };
 
-export function computeAnalytics(raw: RawData, range: DateRange): Omit<AnalyticsData, 'loading' | 'error' | 'lastUpdated'> {
-  const { start, now, prevStart, prevEnd } = getPeriods(range);
+export function computeAnalytics(
+  raw: RawData,
+  range: DateRange,
+  custom?: CustomRange | null,
+): Omit<AnalyticsData, 'loading' | 'error' | 'lastUpdated'> {
+  const { start, end, prevStart, prevEnd } = getPeriods(range, custom);
 
-  const pvCur = raw.pageViews.filter((r) => inRange(r.ts, start, now));
+  const pvCur = raw.pageViews.filter((r) => inRange(r.ts, start, end));
   const pvPrev = raw.pageViews.filter((r) => inRange(r.ts, prevStart, prevEnd));
-  const evCur = raw.events.filter((r) => inRange(r.ts, start, now));
+  const evCur = raw.events.filter((r) => inRange(r.ts, start, end));
   const evPrev = raw.events.filter((r) => inRange(r.ts, prevStart, prevEnd));
   const ordersCur = dedupeOrders(evCur);
   const ordersPrev = dedupeOrders(evPrev);
@@ -278,10 +311,12 @@ export function computeAnalytics(raw: RawData, range: DateRange): Omit<Analytics
   const sessions = new Set(pvCur.map((pv) => pv.session_id));
   const unconsented = unconsentedSessionIds(evCur);
 
-  // Günlük: onaylı ziyaret + onaysız ziyaret + sipariş
+  // Zaman dilimleri (saatlik / günlük): onaylı ziyaret + onaysız ziyaret + sipariş
+  const buckets = makeBuckets(start, end);
+  const dayKey = buckets.key;
   const days = new Map<string, DailyStat>();
-  for (const d = new Date(start); d <= now; d.setDate(d.getDate() + 1)) {
-    days.set(dayKey(d), { date: dayLabel(d), consented: 0, anonymous: 0, orders: 0, convRate: 0 });
+  for (const d = new Date(buckets.first); d <= end; buckets.next(d)) {
+    days.set(dayKey(d), { date: buckets.label(d), consented: 0, anonymous: 0, orders: 0, convRate: 0 });
   }
   const daySessions = new Map<string, Set<string>>();
   pvCur.forEach((pv) => {
@@ -358,17 +393,29 @@ export function computeAnalytics(raw: RawData, range: DateRange): Omit<Analytics
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useAnalyticsData(range: DateRange): AnalyticsData {
+export function useAnalyticsData(range: DateRange, custom?: CustomRange | null): AnalyticsData {
   const [state, setState] = useState<AnalyticsData>(EMPTY);
+  const requestRef = useRef(0);
+  // Tarihleri sayı olarak izle: aynı aralık için her çizimde yeni Date nesnesi gelse de yeniden çekme
+  const customStart = custom?.start.getTime() ?? null;
+  const customEnd = custom?.end.getTime() ?? null;
 
   const fetchData = useCallback(async () => {
     const password = sessionStorage.getItem(ANALIZ_PASSWORD_KEY);
     if (!password) return;
-    const { prevStart } = getPeriods(range);
+    const customRange = customStart !== null && customEnd !== null
+      ? { start: new Date(customStart), end: new Date(customEnd) }
+      : null;
+    if (range === 'custom' && !customRange) return;
+    const { prevStart } = getPeriods(range, customRange);
+    const requestId = ++requestRef.current;
 
     const { data, error } = await supabase.functions.invoke<RawData>('analytics-data', {
       body: { password, mode: 'data', since: prevStart.toISOString() },
     });
+
+    // Bu arada aralık değiştiyse eski cevabı yok say
+    if (requestId !== requestRef.current) return;
 
     if (error || !data) {
       let message = error?.message ?? 'veri alınamadı';
@@ -387,8 +434,8 @@ export function useAnalyticsData(range: DateRange): AnalyticsData {
       return;
     }
 
-    setState({ ...computeAnalytics(data, range), loading: false, error: null, lastUpdated: new Date() });
-  }, [range]);
+    setState({ ...computeAnalytics(data, range, customRange), loading: false, error: null, lastUpdated: new Date() });
+  }, [range, customStart, customEnd]);
 
   useEffect(() => {
     // Aralık değişince eski dönemin rakamları yeni etiketle görünmesin
