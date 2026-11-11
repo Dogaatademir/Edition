@@ -101,7 +101,6 @@ export default function Odeme() {
     if (hasTrackedViewRef.current) return;
     hasTrackedViewRef.current = true;
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    trackEvent('react_odeme_view');
   }, []);
 
   const fetchCartFromShopify = async (codeToApply?: string | null) => {
@@ -343,7 +342,7 @@ export default function Odeme() {
           
 
             {/* Ücretsiz kargoya kalan tutarı tamamlayan kahve önerileri (sepet çekmecesindekiyle aynı) */}
-            {shopifyCart && !shipping.isFree && (
+            {shopifyCart && (
               <FreeShippingSuggestions
                 cartItems={cartItems}
                 remaining={shipping.remaining}

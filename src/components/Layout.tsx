@@ -29,6 +29,7 @@ import { cartItemKey, canonicalGrind } from '../lib/cartKey';
 import ShippingNotice from './ShippingNotice';
 import QuickAddModal from './QuickAddModal';
 import FreeShippingSuggestions from './FreeShippingSuggestions';
+import WhatsAppButton from './WhatsAppButton';
 import { getConsent, setConsent, openConsentPreferences, OPEN_PREFERENCES_EVENT } from '../lib/consent';
 
 // --- DUYURU ŞERİDİ (ANNOUNCEMENT BAR) BİLEŞENİ ---
@@ -568,8 +569,8 @@ const CartDrawer = () => {
                     })
                   )}
                 </div>
-                {/* Ücretsiz kargoya kalan tutarı tamamlayan kahve önerileri */}
-                {shopifyCart && !shipping.isFree && (
+                {/* Kahve önerileri: eşiği tamamlayan ya da (kargo ücretsizse) farklı türden ürünler */}
+                {shopifyCart && (
                   <FreeShippingSuggestions
                     cartItems={cartItems}
                     remaining={shipping.remaining}
@@ -950,6 +951,7 @@ const Layout = ({ children }: { children: ReactNode }) => {
 
       <Footer />
 
+      <WhatsAppButton />
       <CookieBanner />
       <MembershipPopup />
     </div>

@@ -1,24 +1,34 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useSeo } from '../hooks/useSeo';
+import { supabase } from '../lib/supabase';
+import { ANALIZ_PASSWORD_KEY } from '../hooks/useAnalyticsData';
 
-const SESSION_KEY = 'analiz_authed';
-const ADMIN_PASSWORD = import.meta.env.VITE_ANALYTICS_PASSWORD;
+// Şifre sunucuda (analytics-data fonksiyonu) kontrol edilir; sitenin koduna gömülmez.
+// Doğrulanan şifre yalnızca bu sekme için sessionStorage'da tutulur ve veri isteklerinde gönderilir.
 
 export default function AnalyticsGate({ children }: { children: ReactNode }) {
   useSeo('Analiz | Edition Coffee Roastery', 'Yönetim paneli.', undefined, null, true);
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1');
+  const [authed, setAuthed] = useState(() => !!sessionStorage.getItem(ANALIZ_PASSWORD_KEY));
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
-      sessionStorage.setItem(SESSION_KEY, '1');
-      setAuthed(true);
-      setError(false);
-    } else {
-      setError(true);
+    if (!password || busy) return;
+    setBusy(true);
+    const { error: fnError } = await supabase.functions.invoke('analytics-data', {
+      body: { password, mode: 'check' },
+    });
+    setBusy(false);
+    if (fnError) {
+      const status = (fnError as { context?: Response }).context?.status;
+      setError(status === 401 ? 'şifre yanlış' : 'sunucuya ulaşılamadı');
+      return;
     }
+    sessionStorage.setItem(ANALIZ_PASSWORD_KEY, password);
+    setAuthed(true);
+    setError(null);
   };
 
   if (authed) return <>{children}</>;
@@ -43,7 +53,7 @@ export default function AnalyticsGate({ children }: { children: ReactNode }) {
           type="password"
           autoFocus
           value={password}
-          onChange={(e) => { setPassword(e.target.value); setError(false); }}
+          onChange={(e) => { setPassword(e.target.value); setError(null); }}
           placeholder="şifre"
           style={{
             fontFamily: 'monospace', fontSize: 13, padding: '8px 10px',
@@ -52,10 +62,11 @@ export default function AnalyticsGate({ children }: { children: ReactNode }) {
           }}
         />
         {error && (
-          <div style={{ fontSize: 11, color: '#c0392b' }}>şifre yanlış</div>
+          <div style={{ fontSize: 11, color: '#c0392b' }}>{error}</div>
         )}
         <button
           type="submit"
+          disabled={busy}
           style={{
             fontFamily: 'monospace', fontSize: 12, cursor: 'pointer',
             padding: '8px 10px', borderRadius: 4,
@@ -63,7 +74,7 @@ export default function AnalyticsGate({ children }: { children: ReactNode }) {
             textTransform: 'uppercase', letterSpacing: '0.06em',
           }}
         >
-          Giriş
+          {busy ? 'kontrol ediliyor...' : 'Giriş'}
         </button>
       </form>
     </div>
