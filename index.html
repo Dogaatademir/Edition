@@ -1,29 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="tr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/editionsiyah.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // iPhone Safari, 16 px'ten küçük yazılı seçim kutularına dokunulunca sayfayı yakınlaştırır.
+      // Yalnızca iOS'ta otomatik yakınlaştırmayı kapatır; iOS iki parmakla yakınlaştırmaya yine izin verir.
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+        document.querySelector('meta[name="viewport"]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1');
+      }
+    </script>
     <title>Edition Coffee Roastery</title>
     <meta name="description" content="Edition Coffee Roastery — taze kavrulmuş Türk kahvesi, filtre kahve ve espresso. Yüzyıllık geleneği modern kavurmayla buluşturuyoruz. 850 TL üzeri kargo ücretsiz." />
 
-    <!-- Microsoft Clarity -->
-    <script type="text/javascript">
-      (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-      })(window, document, "clarity", "script", "x2a7jpocu8");
-    </script>
-
-    <!-- Google Ads -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18193227939"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){ dataLayer.push(arguments); }
-      gtag('js', new Date());
-      gtag('config', 'AW-18193227939');
-    </script>
+    <!-- Clarity, Google Ads ve Meta Pixel yalnızca çerez onayından sonra yüklenir: src/lib/consent.ts -->
 
   </head>
   <body>

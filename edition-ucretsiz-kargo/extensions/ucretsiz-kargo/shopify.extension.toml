@@ -1,0 +1,26 @@
+api_version = "2026-10"
+
+[[extensions]]
+name = "Ücretsiz kargo (etiketli ürün)"
+handle = "ucretsiz-kargo"
+uid = "a651f8ae-1150-100d-64c8-c7f22f7d1ef29824d304"
+type = "function"
+description = "Sepette 'ucretsiz-kargo' etiketli en az bir ürün varsa siparişin tüm kargosunu ücretsiz yapar."
+
+  [[extensions.targeting]]
+  target = "cart.lines.discounts.generate.run"
+  input_query = "src/cart_lines_discounts_generate_run.graphql"
+  export = "cart-lines-discounts-generate-run"
+
+  [[extensions.targeting]]
+  target = "cart.delivery-options.discounts.generate.run"
+  input_query = "src/cart_delivery_options_discounts_generate_run.graphql"
+  export = "cart-delivery-options-discounts-generate-run"
+
+  # Shopify panelindeki "İndirim oluştur" formu (admin UI uzantısı)
+  [extensions.ui]
+  handle = "ucretsiz-kargo-ui"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"

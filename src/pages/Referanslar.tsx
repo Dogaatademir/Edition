@@ -44,7 +44,7 @@ export default function Referanslar() {
           </p>
           <h1 className="font-serif text-[clamp(2.4rem,6vw,5.5rem)] leading-[1.05] tracking-[-0.02em] max-w-4xl">
             Bize güvenen{" "}
-            <em className="italic text-[#c38152]">işletmeler ve</em>{" "}
+            <em className="italic text-[#A56A3F]">işletmeler ve</em>{" "}
             iş ortaklarımız.
           </h1>
         </div>
@@ -91,7 +91,7 @@ export default function Referanslar() {
       <section className="border-t border-[#1b1b1b]/10 bg-[#1b1b1b] py-24 px-6 md:px-10 text-center text-[#f7f0e7]">
         <div className="mx-auto max-w-3xl flex flex-col items-center">
           <div className="mb-8 h-16 w-[1px] bg-[#f7f0e7]/20" />
-          <p className="mb-6 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#c38152]">İş Birliği</p>
+          <p className="mb-6 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#A56A3F]">İş Birliği</p>
           <h3 className="font-serif text-[clamp(1.6rem,3vw,2.8rem)] leading-[1.3] mb-10">
             İşletmeniz için özel kahve tedariği hakkında bizimle iletişime geçin.
           </h3>

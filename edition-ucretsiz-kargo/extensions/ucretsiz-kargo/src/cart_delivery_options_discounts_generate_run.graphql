@@ -1,0 +1,29 @@
+# Etiket ve meta alan burada sabittir. Değiştirirseniz sitedeki src/lib/shipping.ts
+# (FREE_SHIPPING_TAG) ve src/lib/shopify.ts (custom.ucretsiz_kargo) değerlerini de aynı yapın.
+query DeliveryInput {
+  cart {
+    lines {
+      merchandise {
+        ... on ProductVariant {
+          # Yalnızca bu varyant: Shopify → Ürün → Varyant → "Ücretsiz kargo" meta alanı
+          metafield(namespace: "custom", key: "ucretsiz_kargo") {
+            value
+          }
+          # Ürünün tüm varyantları: ürün etiketi
+          product {
+            hasAnyTag(tags: ["ucretsiz-kargo"])
+          }
+        }
+      }
+    }
+    deliveryGroups {
+      id
+      deliveryOptions {
+        deliveryMethodType
+      }
+    }
+  }
+  discount {
+    discountClasses
+  }
+}

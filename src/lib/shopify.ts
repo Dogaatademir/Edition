@@ -1,6 +1,7 @@
 // src/lib/shopify.ts
 
 import { getSessionId } from './session';
+import { GRIND_ATTRIBUTE_KEY } from './cartKey';
 
 export interface ProductVariant {
   id: string;
@@ -9,6 +10,9 @@ export interface ProductVariant {
   oldPrice?: string;
   image?: string;
   hoverImage?: string;
+  available?: boolean;
+  /** Varyant meta alanı custom.ucretsiz_kargo = true (yalnızca bu varyant ücretsiz kargolu) */
+  freeShipping?: boolean;
 }
 
 export interface CoffeeProduct {
@@ -32,6 +36,12 @@ export interface CoffeeProduct {
   grind?: string;
 }
 
+/** Bu etiketi taşıyan ürünler Kahveler ve ana sayfa listelerinde gösterilmez */
+export const HIDDEN_FROM_LISTING_TAG = 'harman';
+
+export const isListedProduct = (p: Pick<CoffeeProduct, 'category'>) =>
+  !p.category.some((tag) => tag.trim().toLowerCase() === HIDDEN_FROM_LISTING_TAG);
+
 export function mapShopifyProduct(p: any): CoffeeProduct {
   const price = parseFloat(p.priceRange?.minVariantPrice?.amount || "0");
   const compareAt = parseFloat(p.compareAtPriceRange?.minVariantPrice?.amount ?? "0");
@@ -50,6 +60,8 @@ export function mapShopifyProduct(p: any): CoffeeProduct {
       oldPrice: v.compareAtPrice ? `${parseFloat(v.compareAtPrice.amount).toFixed(2)} ₺` : undefined,
       image: v.image?.url ?? undefined,
       hoverImage: variantMetaMap["2_gorsel"]?.reference?.image?.url ?? undefined,
+      available: typeof v.availableForSale === "boolean" ? v.availableForSale : undefined,
+      freeShipping: variantMetaMap["ucretsiz_kargo"]?.value === "true",
     };
   });
 
@@ -100,13 +112,16 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
             nodes {
               id
               title
+              availableForSale
               price { amount }
               compareAtPrice { amount }
               image { url }
               metafields(identifiers: [
                 { namespace: "custom", key: "2_gorsel" }
+                { namespace: "custom", key: "ucretsiz_kargo" }
               ]) {
                 key
+                value
                 reference {
                   ... on MediaImage {
                     image { url }
@@ -133,46 +148,73 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
     const json = await res.json();
     const nodes = json.data?.products?.nodes || [];
     
-    const flattenedProducts: CoffeeProduct[] = [];
+    // Her Shopify ürünü listede tek ürün olarak yer alır; gramajlar `variants` içinde tutulur.
+    // Kartta en düşük fiyatlı varyant (genelde en küçük gramaj) gösterilir.
+    const products: CoffeeProduct[] = [];
 
     nodes.forEach((p: any) => {
       const metaMap: Record<string, string> = {};
       p.metafields?.forEach((m: any) => { if (m) metaMap[m.key] = m.value; });
 
-      const variants = p.variants?.nodes || [];
+      const rawVariants = p.variants?.nodes || [];
+      if (rawVariants.length === 0) return;
 
-      variants.forEach((v: any) => {
-        const isDefault = v.title === "Default Title";
-        const productName = isDefault ? p.title : `${p.title} ${v.title}`;
-
+      const variants: ProductVariant[] = rawVariants.map((v: any) => {
         const variantMetaMap: Record<string, any> = {};
         v.metafields?.forEach((m: any) => { if (m) variantMetaMap[m.key] = m; });
-        const hoverImageUrl = variantMetaMap["2_gorsel"]?.reference?.image?.url ?? null;
-
-        flattenedProducts.push({
+        return {
           id: v.id,
-          handle: p.handle,
-          name: productName,
-          description: p.description || "",
+          weight: v.title,
           price: `${parseFloat(v.price.amount).toFixed(2)} ₺`,
           oldPrice: v.compareAtPrice ? `${parseFloat(v.compareAtPrice.amount).toFixed(2)} ₺` : undefined,
-          image: v.image?.url ?? p.featuredImage?.url,
-          images: hoverImageUrl
-            ? [v.image?.url ?? p.featuredImage?.url, hoverImageUrl]
-            : (p.images?.nodes || []).map((img: any) => img.url),
-          badge: metaMap["badge"] ?? undefined,
-          origin: metaMap["origin"] ?? undefined,
-          process: metaMap["process"] ?? undefined,
-          roast: metaMap["roast"] ?? undefined,
-          notes: metaMap["notes"] ? metaMap["notes"].split(",").map((n: string) => n.trim()) : [],
-          code: metaMap["code"] ?? p.handle.toUpperCase().slice(0, 6),
-          category: p.tags || [],
-          variants: [],
-        });
+          image: v.image?.url ?? undefined,
+          hoverImage: variantMetaMap["2_gorsel"]?.reference?.image?.url ?? undefined,
+          freeShipping: variantMetaMap["ucretsiz_kargo"]?.value === "true",
+          available: v.availableForSale !== false,
+        };
+      });
+
+      // En düşük fiyatlı varyant kartın fiyatı/görseli olur
+      const cheapestIndex = rawVariants.reduce(
+        (best: number, v: any, i: number) =>
+          parseFloat(v.price.amount) < parseFloat(rawVariants[best].price.amount) ? i : best,
+        0,
+      );
+      const displayRaw = rawVariants[cheapestIndex];
+      const display = variants[cheapestIndex];
+
+      // Tek varyantlı üründe varyant adı ürün adının devamıdır (ör. "… | 4 x" + "100 gr");
+      // çok varyantlıda ürün adının sonundaki "|" ayracı atılır.
+      const isDefault = displayRaw.title === "Default Title";
+      const productName = variants.length > 1
+        ? p.title.replace(/[\s|]+$/, '').trim()
+        : (isDefault ? p.title : `${p.title} ${displayRaw.title}`);
+
+      const mainImage = display.image ?? p.featuredImage?.url;
+
+      products.push({
+        id: p.id,
+        handle: p.handle,
+        name: productName,
+        description: p.description || "",
+        price: display.price,
+        oldPrice: display.oldPrice,
+        image: mainImage,
+        images: display.hoverImage
+          ? [mainImage, display.hoverImage]
+          : (p.images?.nodes || []).map((img: any) => img.url),
+        badge: metaMap["badge"] ?? undefined,
+        origin: metaMap["origin"] ?? undefined,
+        process: metaMap["process"] ?? undefined,
+        roast: metaMap["roast"] ?? undefined,
+        notes: metaMap["notes"] ? metaMap["notes"].split(",").map((n: string) => n.trim()) : [],
+        code: metaMap["code"] ?? p.handle.toUpperCase().slice(0, 6),
+        category: p.tags || [],
+        variants,
       });
     });
 
-    return flattenedProducts;
+    return products;
   } catch (err) {
     console.error("Shopify Fetch Hatası:", err);
     return [];
@@ -197,13 +239,16 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Coffe
           nodes {
             id
             title
+            availableForSale
             price { amount }
             compareAtPrice { amount }
             image { url }
             metafields(identifiers: [
               { namespace: "custom", key: "2_gorsel" }
+              { namespace: "custom", key: "ucretsiz_kargo" }
             ]) {
               key
+              value
               reference {
                 ... on MediaImage {
                   image { url }
@@ -549,6 +594,8 @@ export interface ShopifyCartResponse {
   lines: Array<{
     id: string;
     variantId?: string;
+    /** Satırın "Öğütme Derecesi" özelliği (varsa) */
+    grind?: string;
     title: string;
     quantity: number;
     originalPrice: number;
@@ -565,7 +612,7 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
   const lineItems = cartItems.map((item: any) => ({
     merchandiseId: item.variantId || item.id,
     quantity: item.quantity,
-    ...(item.grind ? { attributes: [{ key: "Öğütme Derecesi", value: item.grind }] } : {}),
+    ...(item.grind ? { attributes: [{ key: GRIND_ATTRIBUTE_KEY, value: item.grind }] } : {}),
   }));
 
   const createQuery = `
@@ -725,9 +772,12 @@ export async function createShopifyCart(cartItems: any[], discountCode?: string 
          title += ` ${variantTitle}`; 
       }
 
+      const grindAttr = (node.attributes ?? []).find((a: any) => a?.key === GRIND_ATTRIBUTE_KEY);
+
       return {
         id: node.id,
         variantId: node.merchandise?.id,
+        grind: grindAttr?.value || undefined,
         title: title,
         quantity: quantity,
         originalPrice: originalPrice,

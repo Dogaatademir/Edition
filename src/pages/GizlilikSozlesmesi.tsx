@@ -2,7 +2,7 @@ export default function GizlilikSozlesmesi() {
   return (
     <div className="min-h-screen bg-[#f7f0e7] px-5 py-24 md:px-10">
       <div className="mx-auto max-w-[800px]">
-        <p className="mb-4 font-mono text-[0.6rem] tracking-[0.32em] text-[#C17A3A]">SÖZLEŞMELER</p>
+        <p className="mb-4 font-mono text-[0.6rem] tracking-[0.32em] text-[#A5622A]">SÖZLEŞMELER</p>
         <h1 className="font-serif text-[clamp(2rem,4vw,3.5rem)] leading-[1.1] tracking-[-0.02em] text-[#1b1b1b]">
           Gizlilik ve Güvenlik Politikası
         </h1>
@@ -50,22 +50,22 @@ export default function GizlilikSozlesmesi() {
           </div>
 
           <div className="border-t border-[#1b1b1b]/10 pt-8">
-            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">ÖDEME GÜVENLİĞİ</h2>
+            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">ÖDEME GÜVENLİĞİ</h2>
             <p className="mb-4">Ödeme alt yapısı sistemimiz Türkiye'nin en güvenilir ödeme alt yapısına sahip olan İkas POS güvencesi altındadır. İkas POS'un ödeme güvenliği ile alakalı detaylı bilgiler aşağıdaki gibidir. Güvenlik konusunda gelişmiş PCI DSS uyumlu teknik altyapısı ve alanında tecrübeli personeli ile İkas POS hem şirketlerin ödeme güvenliğini hem de şirket müşterilerinin kart güvenliğini sağlamaktadır.</p>
           </div>
 
           <div>
-            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">SAHTECİLİK ÖNLEME</h2>
+            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">SAHTECİLİK ÖNLEME</h2>
             <p>Online ödemelerde sahtecilik (fraud) profesyonelce ele alınması gereken bir konudur. Sektörün alanında en köklü kuruluşu olarak sahtecilik alanında standartların çok üzerinde özel uygulamalarımız ile hak sahiplerini güvende tutuyoruz. İkas POS altyapısı sahteciliğe karşı sektör bazında çok sayıda filtreler ile geliştirilmiştir. Ayrıca sahtecilik izleme personeli tarafından yapılan ödemeler kontrol edilmekte ve şüpheli durumlarda işleme onay verilmemektedir.</p>
           </div>
 
           <div>
-            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">KART GÜVENLİĞİ</h2>
+            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">KART GÜVENLİĞİ</h2>
             <p>İkas POS, SSL sertifikalı ödeme sayfası ve PCI-DSS uyumluluğu ile müşterilerinizin güvenli bir ortamda ödeme yapmaları için gerekli her türlü önlemi almıştır. Böylece İkas POS, müşterilerinizin ödeme yaparken oluşabilecek endişelerini azaltmakta ve ödeme dönüşüm oranınızı artırmaktadır.</p>
           </div>
 
           <div>
-            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">E-TİCARET SİSTEMİMİZİN GÜVENLİK ÖNLEMLERİ</h2>
+            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">E-TİCARET SİSTEMİMİZİN GÜVENLİK ÖNLEMLERİ</h2>
             <ul className="space-y-2 list-none">
               <li>1 — Güvenlik Duvarı (Firewall)</li>
               <li>2 — 256 Bit SSL Sertifikası — SSL (Secure Sockets Layer), siteyi ziyaret eden kullanıcı bilgilerinin güvenliğini sağlayan bir şifreleme sistemidir.</li>
@@ -74,7 +74,7 @@ export default function GizlilikSozlesmesi() {
           </div>
 
           <div className="border-t border-[#1b1b1b]/10 pt-8">
-            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">İLETİŞİM</h2>
+            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">İLETİŞİM</h2>
             <p className="mb-4">İşbu Gizlilik Politikası ile ilgili herhangi bir sorunuz olması durumunda veya bilgilerinizin güncellenmesini arzu ettiğinizde bizimle iletişime geçebilirsiniz.</p>
             <ul className="space-y-2">
               <li><strong className="font-medium text-[#1b1b1b]">Unvan:</strong> Daryo İç ve Dış Ticaret Dan. A.Ş.</li>

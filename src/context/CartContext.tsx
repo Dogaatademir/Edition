@@ -5,6 +5,7 @@ import { createShopifyCart, type ShopifyCartResponse } from '../lib/shopify';
 import { trackEvent } from '../hooks/useAnalytics';
 import { metaAddToCart } from '../lib/metaPixel';
 import { gAdsAddToCart } from '../lib/Googleads'; // ← YENİ
+import { normalizeCartItems } from '../lib/cartKey';
 
 export interface CartItem extends CoffeeProduct { 
   quantity: number;
@@ -31,7 +32,13 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     const savedCart = typeof window !== 'undefined' ? localStorage.getItem('edition_cart') : null;
-    return savedCart ? JSON.parse(savedCart) : [];
+    if (!savedCart) return [];
+    try {
+      // Eski sepetlerde aynı ürün ayrı kayıtlar olarak durabilir; açılışta birleştir
+      return normalizeCartItems(JSON.parse(savedCart));
+    } catch {
+      return [];
+    }
   });
   
   const [isCartOpen, setIsCartOpen] = useState(false);

@@ -68,10 +68,10 @@ export default function Toptan() {
           ref={heroReveal.ref}
           className={`relative z-10 mx-auto max-w-[1440px] transition-all duration-1000 ${heroReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
         >
-          <p className="mb-6 font-mono text-[0.58rem] uppercase tracking-[0.35em] text-[#c38152]">Kurumsal Çözümler</p>
+          <p className="mb-6 font-mono text-[0.58rem] uppercase tracking-[0.35em] text-[#A56A3F]">Kurumsal Çözümler</p>
           <h1 className="font-serif text-[clamp(2.4rem,6vw,5.5rem)] leading-[1.05] tracking-[-0.02em] max-w-4xl mb-10">
             İşletmenize özel{" "}
-            <em className="italic text-[#c38152]">kahve deneyimleri.</em>
+            <em className="italic text-[#A56A3F]">kahve deneyimleri.</em>
           </h1>
           <div className="flex items-center gap-3">
             <div className="h-[1px] w-12 bg-[#f7f0e7]/30" />
@@ -80,8 +80,6 @@ export default function Toptan() {
         </div>
       </section>
 
-     
-
       {/* 3. GİRİŞ VE VİZYON */}
       <section className="border-b border-[#1b1b1b]/10">
         <div className="mx-auto max-w-[1440px] flex flex-col lg:flex-row">
@@ -89,7 +87,7 @@ export default function Toptan() {
             ref={introReveal.ref}
             className={`flex-1 p-8 md:p-16 lg:p-24 flex flex-col justify-center transition-all duration-1000 delay-100 ${introReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
           >
-            <p className="mb-5 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#c38152]">Neden Edition Coffee?</p>
+            <p className="mb-5 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#A56A3F]">Neden <span lang="en">Edition Coffee</span>?</p>
             <h2 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.1] tracking-[-0.02em] mb-8">
               Sadece Tedarikçi Değil,<br />Çözüm Ortağınız
             </h2>
@@ -131,7 +129,7 @@ export default function Toptan() {
           className={`mx-auto max-w-[1440px] transition-all duration-1000 ${servicesReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
         >
           <div className="border-b border-[#1b1b1b]/10 p-8 md:p-16 lg:px-24">
-            <p className="mb-4 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#c38152]">Hizmetlerimiz</p>
+            <p className="mb-4 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#A56A3F]">Hizmetlerimiz</p>
             <h3 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.05] tracking-[-0.02em]">
               Neden <em className="italic text-[#1b1b1b]/40">Edition Coffee?</em>
             </h3>
@@ -162,7 +160,7 @@ export default function Toptan() {
           className={`mx-auto max-w-[1440px] flex flex-col lg:flex-row items-center justify-between gap-12 transition-all duration-1000 ${ctaReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
         >
           <div className="flex-1">
-            <p className="mb-5 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#c38152]">Hadi Başlayalım</p>
+            <p className="mb-5 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#A56A3F]">Hadi Başlayalım</p>
             <h3 className="font-serif text-[clamp(1.8rem,3.5vw,3.5rem)] leading-[1.15] tracking-[-0.02em] mb-6">
               İşletmeniz için doğru kahveyi<br className="hidden lg:block" />{" "}
               <em className="italic text-[#f7f0e7]/50">birlikte seçelim.</em>

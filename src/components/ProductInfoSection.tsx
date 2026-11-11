@@ -88,11 +88,11 @@ const ProductInfoSection: React.FC<{ product: CoffeeProduct }> = ({ product }) =
   };
 
   return (
-    <section className="mt-16 md:mt-24 border-t border-[#1b1b1b]/10 pt-16 md:pt-24 pb-12 bg-[#fdfaf6]">
+    <section className="mt-10 md:mt-14 border-t border-[#1b1b1b]/10 pt-10 md:pt-14 pb-6 md:pb-10 bg-[#fdfaf6] overflow-x-clip">
       <div className="mx-auto max-w-[1200px] px-5 md:px-10">
 
         {/* Başlık */}
-        <div className="flex flex-col items-center text-center mb-12 md:mb-16">
+        <div className="flex flex-col items-center text-center mb-6 md:mb-10">
           <span className="font-mono text-[0.65rem] tracking-[0.3em] uppercase text-[#7b6a5c] mb-4 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#7b6a5c] after:content-[''] after:block after:w-5 after:h-[1px] after:bg-[#7b6a5c]">
             Ürün Detayı
           </span>
@@ -107,13 +107,14 @@ const ProductInfoSection: React.FC<{ product: CoffeeProduct }> = ({ product }) =
           {/* Fincan görseli */}
           <div className="min-w-0 flex justify-center md:justify-end">
             <div
-              className="cup-container w-[340px] sm:w-[420px] md:w-[480px] max-w-full aspect-square rounded-full overflow-hidden"
+              className="cup-container w-[260px] sm:w-[320px] md:w-[380px] max-w-full aspect-square rounded-full overflow-hidden"
               style={{
                 ['--rot-mobile' as string]: `${CUP_ROTATION_MOBILE[active]}deg`,
                 ['--rot-desktop' as string]: `${CUP_ROTATION_DESKTOP[active]}deg`,
               } as React.CSSProperties}
             >
-              <img src="/cup1.png" alt="Kahve fincanı" className="w-full h-full object-cover" />
+              {/* Görselde fincanın çevresi boş; kutu küçültülüp görsel büyütülerek fincan aynı boyutta kalır */}
+              <img src="/cup1.png" alt="Kahve fincanı" className="w-full h-full object-cover scale-[1.3]" />
             </div>
           </div>
 

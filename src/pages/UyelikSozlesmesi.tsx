@@ -2,7 +2,7 @@ export default function UyelikSozlesmesi() {
   return (
     <div className="min-h-screen bg-[#f7f0e7] px-5 py-24 md:px-10">
       <div className="mx-auto max-w-[800px]">
-        <p className="mb-4 font-mono text-[0.6rem] tracking-[0.32em] text-[#C17A3A]">SÖZLEŞMELER</p>
+        <p className="mb-4 font-mono text-[0.6rem] tracking-[0.32em] text-[#A5622A]">SÖZLEŞMELER</p>
         <h1 className="font-serif text-[clamp(2rem,4vw,3.5rem)] leading-[1.1] tracking-[-0.02em] text-[#1b1b1b]">
           Üyelik Sözleşmesi
         </h1>
@@ -10,17 +10,17 @@ export default function UyelikSozlesmesi() {
         <div className="mt-12 space-y-10 font-sans text-[0.95rem] leading-relaxed text-[#1b1b1b]/80">
 
           <div>
-            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">MADDE 1 – TARAFLAR</h2>
+            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">MADDE 1 – TARAFLAR</h2>
             <p>İşbu Kullanıcı Sözleşmesi ("Sözleşme"), Yeni Bağlıca Mah. Etimesgut Blv. No:2B-E Etimesgut/Ankara adresinde bulunan Daryo İç ve Dış Ticaret Dan. A.Ş. ("Şirket") ait https://www.editioncoffee.com.tr/ internet sitesindeki ürünlerini/hizmetlerini kullanan tüm kişiler ("Üye") arasında elektronik ortamda akdedilmiştir. Şirket ve Üye bundan böyle birlikte "Taraflar" olarak anılacaktır.</p>
           </div>
 
           <div>
-            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">MADDE 2 – SÖZLEŞMENİN KONUSU</h2>
+            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">MADDE 2 – SÖZLEŞMENİN KONUSU</h2>
             <p>İşbu Sözleşme'nin konusu Şirket'in sahibi olduğu İnternet Sitesi üzerinden Üye'nin satın alacağı ürünlerin ve buna bağlı olarak yararlanacağı hizmetin yararlanma ve kullanma koşullarının belirlenmesidir.</p>
           </div>
 
           <div>
-            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">MADDE 3 – SÖZLEŞMENİN KURULMASI</h2>
+            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">MADDE 3 – SÖZLEŞMENİN KURULMASI</h2>
             <ul className="space-y-3 list-none">
               <li>Üye sözleşmeyi okuduğunu, anladığını, haklarının ve yükümlülüklerinin bilincinde olduğunu kabul eder.</li>
               <li>Taraflar, sözleşme ile kararlaştırılan edimler arasında hiçbir oransızlık bulunmadığını ve karşılıklı edimlerin işin niteliğine uygun olduğunu, sözleşme konusuna giren işlemler kapsamında herhangi bir tecrübesizliklerinin bulunmadığını kabul ederler.</li>
@@ -33,7 +33,7 @@ export default function UyelikSozlesmesi() {
           </div>
 
           <div>
-            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">MADDE 4 – ÜYELİK</h2>
+            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">MADDE 4 – ÜYELİK</h2>
             <ul className="space-y-3 list-none">
               <li>Üyelik, İnternet Sitesi'nde yer alan üyelik işlemlerinin tamamlanmasıyla kazanılır.</li>
               <li>Üye, üyeliği kazanmak, hesap açmak veya hizmetleri herhangi bir şekilde kullanmak için en az 18 (on sekiz) yaşında olduğunu ve bu koşulları anladığını ve kabul ettiğini beyan etmektedir. Üye'nin en az 13 (on üç) yaşında olması ve ayırt etme gücünü haiz olması kaydıyla, 18 (on sekiz) yaşının altında olması halinde, İnternet Sitesi'ni sadece bir ebeveyn veya yasal temsilcisi eşliğinde kullanması gerekmektedir. 13 (on üç) yaşın altındaki hiç kimse hizmetleri herhangi bir şekilde kullanamaz.</li>
@@ -46,7 +46,7 @@ export default function UyelikSozlesmesi() {
           </div>
 
           <div>
-            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">MADDE 5 – HİZMETİN KULLANIMI VE HİZMET BEDELİ</h2>
+            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">MADDE 5 – HİZMETİN KULLANIMI VE HİZMET BEDELİ</h2>
             <ul className="space-y-3 list-none">
               <li>Üye, İnternet Sitesi'nin ilgili bölümünü ziyaret edip kayıt için gerekli olan bölümleri doldurup bu Sözleşme'ye taraf olduktan sonra işbu Sözleşme koşulları dahilinde İnternet Sitesi'nin sunduğu ürün ve hizmetlerden yararlanmaya başlayabilir.</li>
               <li>İnternet Sitesi'ne ücretsiz olarak üye olunabilmektedir.</li>
@@ -55,7 +55,7 @@ export default function UyelikSozlesmesi() {
           </div>
 
           <div>
-            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">MADDE 6 – TARAFLARIN HAK VE YÜKÜMLÜLÜKLERİ</h2>
+            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">MADDE 6 – TARAFLARIN HAK VE YÜKÜMLÜLÜKLERİ</h2>
             <ul className="space-y-3 list-none">
               <li>Üye, İnternet Sitesi'ne üye olurken verdiği kişisel ve diğer sair bilgilerin gerçeğe uygun olduğunu beyan ve taahhüt eder.</li>
               <li>Üye'nin İnternet Sitesi'nin kullanılması için üyelik kapsamında aldığı şifreyi kullanma hakkı münhasıran Üye'ye aittir. Üye bu şifreyi herhangi bir üçüncü şahsa veremez.</li>
@@ -73,7 +73,7 @@ export default function UyelikSozlesmesi() {
           </div>
 
           <div>
-            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">MADDE 7 – SÖZLEŞMENİN FESHİ</h2>
+            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">MADDE 7 – SÖZLEŞMENİN FESHİ</h2>
             <ul className="space-y-3 list-none">
               <li>Üye ve Şirket işbu Sözleşmeyi diledikleri zaman feshedebilir. İşbu Sözleşme, Üye'nin üyeliğini iptal etmesi veya Şirket tarafından üyeliğinin iptal edilmesine kadar yürürlükte kalacaktır.</li>
               <li>Üye'nin fesih işlemi İnternet Sitesi üzerinden fesih usullerinin takip edilerek gerçekleştirilmesi suretiyle yapılır.</li>
@@ -81,7 +81,7 @@ export default function UyelikSozlesmesi() {
           </div>
 
           <div>
-            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">MADDE 8 – SON HÜKÜMLER</h2>
+            <h2 className="mb-3 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">MADDE 8 – SON HÜKÜMLER</h2>
             <ul className="space-y-3 list-none">
               <li><strong className="font-medium text-[#1b1b1b]">Uygulanacak Hukuk:</strong> İşbu Sözleşme Türkiye Cumhuriyeti kanunlarına tabidir ve ona göre yorumlanacaktır.</li>
               <li><strong className="font-medium text-[#1b1b1b]">Yetkili Mahkeme:</strong> İşbu Sözleşme'den doğan veya işbu Sözleşme ile bağlantılı tüm uyuşmazlıkların çözümünde Ankara Mahkemeleri ve Ankara İcra Daireleri yetkilidir.</li>
@@ -91,7 +91,7 @@ export default function UyelikSozlesmesi() {
           </div>
 
           <div className="border-t border-[#1b1b1b]/10 pt-8">
-            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#C17A3A]">ŞİRKET İLETİŞİM BİLGİLERİ</h2>
+            <h2 className="mb-4 font-mono text-[0.7rem] tracking-[0.2em] text-[#A5622A]">ŞİRKET İLETİŞİM BİLGİLERİ</h2>
             <ul className="space-y-2">
               <li><strong className="font-medium text-[#1b1b1b]">Unvan:</strong> Daryo İç ve Dış Ticaret Dan. A.Ş.</li>
               <li><strong className="font-medium text-[#1b1b1b]">Adres:</strong> Yeni Bağlıca Mah. Etimesgut Blv. No:2B-E Etimesgut/Ankara</li>
