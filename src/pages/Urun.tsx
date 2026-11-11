@@ -2,47 +2,77 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  Minus,
-  Plus,
   Truck,
   ShieldCheck,
   Coffee,
   ChevronDown,
   ChevronUp,
   ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { fetchShopifyProductByHandle, type CoffeeProduct, type ProductVariant } from '../lib/shopify';
+import { buyNow } from '../lib/buyNow';
+import { cartItemKey } from '../lib/cartKey';
 import ProductInfoSection from '../components/ProductInfoSection';
 import { useMetaProductView } from '../hooks/useMetaAnalytics';
+import { useSeo } from '../hooks/useSeo';
+import { getShippingStatus, hasFreeShipping } from '../lib/shipping';
+import ShippingNotice from '../components/ShippingNotice';
+import { parsePrice, formatPriceTR, needsGrind, grindOptions } from '../lib/productOptions';
+import {
+  GrindPicker,
+  QuantitySelector,
+  PriceRow,
+  CoffeeFacts,
+  VariantPicker,
+} from '../components/ProductOptions';
 
-const grindOptions = [
-  { id: 'Çekirdek',      image: '/highlightcovers/cekirdek.png'     },
-  { id: 'Espresso',      image: '/highlightcovers/espresso.png'     },
-  { id: 'French Press',  image: '/highlightcovers/french_press.png' },
-  { id: 'V60',           image: '/highlightcovers/v60.png'          },
-  { id: 'Chemex',        image: '/highlightcovers/chemex.png'       },
-  { id: 'Kağıt Filtre',  image: '/highlightcovers/kagit_filtre.png' },
-];
+const SITE_URL = 'https://editioncoffee.com.tr';
 
-// --- YARDIMCI BİLEŞENLER ---
-const QuantitySelector = ({ quantity, setQuantity }: { quantity: number, setQuantity: (q: number) => void }) => (
-  <div className="flex items-center border border-[#1b1b1b]/15 h-12 w-32 bg-[#fdfaf6]">
-    <button 
-      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-      className="flex-1 flex items-center justify-center text-[#1b1b1b] hover:bg-[#f0e8dc] transition-colors h-full border-r border-[#1b1b1b]/15"
-    >
-      <Minus className="w-4 h-4" />
-    </button>
-    <span className="flex-1 text-center font-mono font-bold text-[#1b1b1b] text-sm">{quantity}</span>
-    <button 
-      onClick={() => setQuantity(quantity + 1)}
-      className="flex-1 flex items-center justify-center text-[#1b1b1b] hover:bg-[#f0e8dc] transition-colors h-full border-l border-[#1b1b1b]/15"
-    >
-      <Plus className="w-4 h-4" />
-    </button>
-  </div>
-);
+// Shopify'daki bazı ürün adları "… |" ile bitiyor; SEO başlığında çift ayraç oluşmasın.
+const cleanProductName = (name: string) => name.replace(/[\s|]+$/, '').trim();
+
+const toMetaDescription = (text: string) => {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  return clean.length > 155 ? `${clean.slice(0, 152).trimEnd()}…` : clean;
+};
+
+const buildProductJsonLd = (product: CoffeeProduct, path: string) => {
+  const url = `${SITE_URL}${path}`;
+  const images = [product.image, ...product.variants.map(v => v.image)]
+    .filter((img): img is string => Boolean(img));
+
+  const offers = product.variants
+    .map(v => {
+      const price = parsePrice(v.price);
+      if (isNaN(price) || price <= 0) return null;
+      return {
+        '@type': 'Offer',
+        name: v.weight,
+        url,
+        price: price.toFixed(2),
+        priceCurrency: 'TRY',
+        itemCondition: 'https://schema.org/NewCondition',
+        ...(v.available !== undefined && {
+          availability: v.available ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        }),
+        seller: { '@type': 'Organization', name: 'Edition Coffee Roastery' },
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: cleanProductName(product.name),
+    description: product.description,
+    url,
+    ...(images.length > 0 && { image: [...new Set(images)] }),
+    brand: { '@type': 'Brand', name: 'Edition Coffee Roastery' },
+    ...(offers.length > 0 && { offers }),
+  };
+};
 
 const AccordionItem = ({ title, children, isOpen, onClick }: { title: string, children: React.ReactNode, isOpen: boolean, onClick: () => void }) => (
   <div className="border-b border-[#1b1b1b]/15">
@@ -68,7 +98,7 @@ const Urun = () => {
   const { id: handle } = useParams(); 
   const navigate = useNavigate();
   
-  const { addToCart, totalPrice } = useCart();
+  const { addToCart, cartItems, setIsCartOpen } = useCart();
   
   const [product, setProduct] = useState<CoffeeProduct | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,11 +107,24 @@ const Urun = () => {
   const [openSection, setOpenSection] = useState<string | null>('desc');
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [grind, setGrind] = useState<string>('');
-  const [viewers, setViewers] = useState(Math.floor(Math.random() * 11) + 10);
-  
+
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [imageHovered, setImageHovered] = useState(false);
   const addToCartRef = useRef<HTMLDivElement>(null);
+  const grindRef = useRef<HTMLDivElement>(null);
+  const stickyBarRef = useRef<HTMLDivElement>(null);
+  const [grindHighlight, setGrindHighlight] = useState(false);
+  const [buyNowLoading, setBuyNowLoading] = useState(false);
+  const [buyNowError, setBuyNowError] = useState<string | null>(null);
+
+  // Ödeme sayfasından tarayıcının geri tuşuyla dönülürse "açılıyor" durumunu sıfırla
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setBuyNowLoading(false);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
 
   // Ürün Çekme
   useEffect(() => {
@@ -115,26 +158,23 @@ const Urun = () => {
       : null
   );
 
-  // İzleyici Simülasyonu
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setViewers(prev => {
-        const diff = Math.floor(Math.random() * 3) - 1;
-        let next = prev + diff;
-        if (next < 10) next = 10;
-        if (next > 20) next = 20;
-        return next;
-      });
-    }, 6000);
-    return () => clearInterval(interval);
-  }, []);
+  // SEO — başlık, açıklama, canonical ve Product yapısal verisi
+  const seoPath = handle ? `/urun/${handle}` : undefined;
+  useSeo(
+    product ? `${cleanProductName(product.name)} | Edition Coffee Roastery` : 'Edition Coffee Roastery',
+    product ? toMetaDescription(product.description) : '',
+    product ? seoPath : undefined,
+    product && seoPath ? buildProductJsonLd(product, seoPath) : null,
+  );
 
-  // Sticky Bar
+  // Sticky Bar — ana "Sepete Ekle" düğmesi ekranın üstünden (sabit menünün altından)
+  // çıktığında görünür; düğme ekranda veya henüz aşağıdaysa gizli kalır.
   useEffect(() => {
     const handleScroll = () => {
       if (addToCartRef.current) {
         const rect = addToCartRef.current.getBoundingClientRect();
-        setShowStickyBar(rect.bottom < 130);
+        const headerBottom = document.querySelector('header')?.getBoundingClientRect().bottom ?? 130;
+        setShowStickyBar(rect.bottom < headerBottom);
       }
     };
 
@@ -176,60 +216,112 @@ const Urun = () => {
     setOpenSection(openSection === section ? null : section);
   };
 
-  const handleAddToCart = () => {
+  // Tek varyantlı ürünlerde gramaj seçimi gösterilmez (ör. 4 x 100 gr set)
+  const hasMultipleVariants = (product.variants?.length ?? 0) > 1;
+
+  // Seçili varyant, öğütme ve adetle sepet satırı oluşturur
+  const buildCartItem = () => {
     const showsGrind = product.category.includes('filtre') || product.category.includes('espresso');
-    if (showsGrind && !grind) return;
 
     let cartProductName = product.name;
 
     if (selectedVariant && selectedVariant.weight !== "Default Title") {
-      cartProductName += ` - ${selectedVariant.weight}`;
+      // Tek varyantlı üründe varyant adı ürün adının devamıdır (ör. "… | 4 x" + "100 gr")
+      // Shopify'daki adı "… |" ile bitenlerde ayraç zaten var
+      const joinsDirectly = !hasMultipleVariants || cartProductName.trimEnd().endsWith('|');
+      cartProductName = `${cartProductName.trimEnd()}${joinsDirectly ? ' ' : ' - '}${selectedVariant.weight}`;
     }
 
     if (showsGrind) cartProductName += ` (${grind})`;
 
     const cartProductObj = {
       ...product,
-      id: Date.now().toString(),
+      // Aynı varyant + öğütme her zaman aynı satır (adet artar, yeni satır açılmaz)
+      id: cartItemKey(selectedVariant ? selectedVariant.id : product.variants?.[0]?.id, showsGrind ? grind : undefined),
       variantId: selectedVariant ? selectedVariant.id : product.variants?.[0]?.id,
       name: cartProductName,
       price: selectedVariant ? selectedVariant.price : product.price,
       grind: showsGrind ? grind : undefined,
+      // Varyanta özel ücretsiz kargo (custom.ucretsiz_kargo); ürün etiketi ayrıca category'den okunur
+      freeShipping: selectedVariant?.freeShipping === true,
     };
 
-    addToCart(cartProductObj as any, quantity); 
+    return cartProductObj;
   };
 
-  const displayPrice = selectedVariant ? selectedVariant.price : product.price;
-  const displayOldPrice = selectedVariant ? selectedVariant.oldPrice : product.oldPrice;
-  const isFiltre = product.category.includes('filtre') || product.category.includes('espresso');
+  const handleAddToCart = () => {
+    if (isFiltre && !grind) return;
+    addToCart(buildCartItem(), quantity);
+  };
+
+  // Hızlı Satın Al: ürünü sepete ekler ve sepetin tamamıyla (önceki ürünler + bu ürün)
+  // doğrudan Shopify ödeme sayfasını açar
+  const handleBuyNow = async () => {
+    if (isFiltre && !grind) {
+      grindRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setGrindHighlight(true);
+      return;
+    }
+    setBuyNowError(null);
+    setBuyNowLoading(true);
+    try {
+      await buyNow({ item: buildCartItem(), quantity, cartItems, addToCart, setIsCartOpen });
+    } catch (err) {
+      setBuyNowError(err instanceof Error ? err.message : 'Ödeme sayfası açılamadı. Lütfen tekrar deneyin.');
+      setBuyNowLoading(false);
+    }
+  };
+
+  const isFiltre = needsGrind(product);
+  const displayPrice = formatPriceTR(selectedVariant ? selectedVariant.price : product.price);
+  const displayOldPrice = formatPriceTR(selectedVariant ? selectedVariant.oldPrice : product.oldPrice);
   const mainImage = selectedVariant?.image ?? product.image;
   const secondImage = selectedVariant?.hoverImage ?? null;
 
-  const freeShippingThreshold = 850;
-  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - totalPrice);
-  const progressPercentage = Math.min(100, (totalPrice / freeShippingThreshold) * 100);
+  const productHasFreeShipping = hasFreeShipping(product) || selectedVariant?.freeShipping === true;
+
+  // Sabit çubuk: öğütme seçilmemişse çubuktaki öğütme kutusunu aç / vurgula
+  const handleStickyAddToCart = () => {
+    if (isFiltre && !grind) {
+      setGrindHighlight(true);
+      const select = [...(stickyBarRef.current?.querySelectorAll<HTMLSelectElement>('select[data-grind]') ?? [])]
+        .find((el) => el.offsetParent !== null);
+      if (select) {
+        select.focus();
+        try {
+          (select as HTMLSelectElement & { showPicker?: () => void }).showPicker?.();
+        } catch {
+          // showPicker desteklenmiyorsa odak ve vurgu yeterli
+        }
+      } else {
+        grindRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+    handleAddToCart();
+  };
+  const shipping = getShippingStatus(cartItems);
 
   return (
     <>
-      <main className="bg-[#fdfaf6] min-h-screen pt-28 pb-32 font-sans selection:bg-[#1b1b1b] selection:text-[#f7f0e7]">
-        <div className="mx-auto max-w-[1440px] px-6 md:px-10">
+      <main className="bg-[#fdfaf6] min-h-screen pt-0 md:pt-28 pb-10 md:pb-16 font-sans selection:bg-[#1b1b1b] selection:text-[#f7f0e7]">
+        <div className="mx-auto max-w-[1440px] px-0 md:px-10">
           
           {/* Breadcrumb */}
-          <div className="flex items-center gap-3 font-mono text-[0.55rem] tracking-[0.2em] uppercase text-[#7b6a5c] mb-8 pb-4 border-b border-[#1b1b1b]/15">
-            <Link to="/kahveler" className="hover:text-[#1b1b1b] transition-colors flex items-center gap-1.5">
+          <div className="flex items-center gap-3 px-5 py-3 md:px-0 md:pt-0 font-mono text-[0.6rem] md:text-[0.55rem] tracking-[0.2em] uppercase text-[#7b6a5c] md:mb-8 md:pb-4 border-b border-[#1b1b1b]/15">
+            <Link to="/kahveler" className="hover:text-[#1b1b1b] transition-colors flex shrink-0 items-center gap-1.5 whitespace-nowrap">
               <ArrowLeft className="w-3 h-3" /> Tüm Seçki
             </Link>
             <span className="opacity-30">/</span>
-            <span className="text-[#1b1b1b]">{product.name}</span>
+            <span className="min-w-0 truncate text-[#1b1b1b]">{product.name}</span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 border border-[#1b1b1b]/15 bg-[#f0e8dc]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 md:border md:border-[#1b1b1b]/15 bg-[#f0e8dc]">
             
             {/* SOL: GÖRSEL */}
             <div className="w-full border-b lg:border-b-0 lg:border-r border-[#1b1b1b]/10 bg-[#efe5d8]">
               <div
-                className="relative w-full aspect-square lg:aspect-auto lg:h-[calc(100vh-130px)] lg:sticky lg:top-[130px] flex items-center justify-center overflow-hidden p-4 lg:p-6 group"
+                className="relative w-full aspect-[4/3] md:aspect-square lg:aspect-auto lg:h-[calc(100vh-130px)] lg:sticky lg:top-[130px] flex items-center justify-center overflow-hidden p-4 lg:p-6 group"
                 onMouseEnter={() => setImageHovered(true)}
                 onMouseLeave={() => setImageHovered(false)}
                 onTouchStart={() => setImageHovered(true)}
@@ -240,13 +332,13 @@ const Urun = () => {
                     <img
                       src={mainImage}
                       alt={product.name}
-                      className={`h-full w-full scale-150 object-contain mix-blend-multiply transition-all duration-1000 group-hover:scale-[1.55] z-10 ${secondImage ? (imageHovered ? 'opacity-0' : 'opacity-100') : ''}`}
+                      className={`h-full w-full scale-110 md:scale-150 object-contain mix-blend-multiply transition-all duration-1000 group-hover:scale-[1.55] z-10 ${secondImage ? (imageHovered ? 'opacity-0' : 'opacity-100') : ''}`}
                     />
                     {secondImage && (
                       <img
                         src={secondImage}
                         alt={product.name}
-                        className={`absolute inset-0 h-full w-full scale-150 object-contain mix-blend-multiply transition-all duration-1000 group-hover:scale-[1.55] z-10 ${imageHovered ? 'opacity-100' : 'opacity-0'}`}
+                        className={`absolute inset-0 h-full w-full scale-110 md:scale-150 object-contain mix-blend-multiply transition-all duration-1000 group-hover:scale-[1.55] z-10 ${imageHovered ? 'opacity-100' : 'opacity-0'}`}
                       />
                     )}
                   </>
@@ -267,7 +359,7 @@ const Urun = () => {
                   )}
                 </div>
 
-                <div className="absolute bottom-6 right-6 z-20">
+                <div className="absolute bottom-3 right-3 md:bottom-6 md:right-6 z-20">
                   <span className="font-mono text-[0.55rem] tracking-[0.2em] text-[#5c4635] uppercase border border-[#1b1b1b]/15 px-3 py-1 bg-[#fdfaf6]">
                     Haftalık Taze Kavrulmuş
                   </span>
@@ -276,86 +368,62 @@ const Urun = () => {
             </div>
 
             {/* SAĞ: BİLGİ */}
-            <div className="flex flex-col p-8 lg:p-14 bg-[#fdfaf6]">
+            <div className="flex flex-col px-5 pt-5 pb-8 md:p-8 lg:p-14 bg-[#fdfaf6]">
               
-              <div className="mb-6">
+              <div className="mb-5 md:mb-6">
               
 
-                <h1 className="font-serif text-[clamp(2rem,3.5vw,3.5rem)] text-[#1b1b1b] leading-[1.05] tracking-[-0.02em] mb-6">
+                <h1 className="font-serif text-[1.6rem] leading-[1.15] md:text-[clamp(2rem,3.5vw,3.5rem)] md:leading-[1.05] text-[#1b1b1b] tracking-[-0.02em] mb-3 md:mb-6">
                   {product.name}
                   {selectedVariant && selectedVariant.weight !== "Default Title" && (
                     <span> {selectedVariant.weight}</span>
                   )}
                 </h1>
                 
-                <div className="flex items-end gap-4 border-b border-[#1b1b1b]/15 pb-6">
-                  <span className="font-mono text-[1.5rem] text-[#1b1b1b] font-semibold tracking-tight transition-all">
-                    {displayPrice}
-                  </span>
-                  {displayOldPrice && (
-                    <span className="font-mono text-[1rem] text-[#7b6a5c] line-through mb-1">
-                      {displayOldPrice}
-                    </span>
-                  )}
-                </div>
+                <PriceRow
+                  price={selectedVariant ? selectedVariant.price : product.price}
+                  oldPrice={selectedVariant ? selectedVariant.oldPrice : product.oldPrice}
+                  freeShipping={productHasFreeShipping}
+                />
               </div>
 
+              {/* KAHVE KÜNYESİ — yalnızca Shopify'da dolu olan alanlar gösterilir */}
+              <CoffeeFacts product={product} className="mb-6 md:mb-8" />
+
               {/* SEÇENEKLER */}
-              <div className="mb-8">
-                {product.variants && product.variants.length > 0 && product.variants[0].weight !== "Default Title" && (
+              <div className="mb-3 md:mb-8">
+                {hasMultipleVariants && product.variants[0].weight !== "Default Title" && (
                   <div className="mb-6">
-                    <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#7b6a5c] uppercase block mb-3">Gramaj Seçimi</span>
-                    <div className="flex flex-wrap gap-3">
-                      {product.variants.map((variant) => (
-                        <button
-                          key={variant.id}
-                          onClick={() => setSelectedVariant(variant)}
-                          className={`px-7 py-4 border font-mono text-[0.8rem] tracking-[0.15em] uppercase transition-colors bg-[#fdfaf6] ${
-                            selectedVariant?.id === variant.id
-                              ? 'border-[#1b1b1b] text-[#1b1b1b]'
-                              : 'border-[#1b1b1b]/15 text-[#5c4635] hover:border-[#1b1b1b]'
-                          }`}
-                        >
-                          {variant.weight}
-                        </button>
-                      ))}
-                    </div>
+                    <VariantPicker
+                      variants={product.variants}
+                      selectedId={selectedVariant?.id}
+                      onSelect={setSelectedVariant}
+                    />
                   </div>
                 )}
 
                 {isFiltre && (
-                  <div className="mb-6">
-                    <span className="font-mono text-[0.6rem] tracking-[0.15em] text-[#7b6a5c] uppercase block mb-3">Öğütme Derecesi *</span>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {grindOptions.map(({ id, image }) => (
-                        <button
-                          key={id}
-                          onClick={() => setGrind(id)}
-                          className={`flex items-center justify-center p-2 border transition-all duration-300 ${
-                            grind === id ? 'border-[#1b1b1b] opacity-100' : 'border-[#1b1b1b]/15 opacity-40 hover:opacity-70'
-                          }`}
-                        >
-                          <img src={image} alt={id} className="w-full h-auto object-contain" />
-                        </button>
-                      ))}
-                    </div>
+                  <div className="mb-0 md:mb-6 scroll-mt-40" ref={grindRef}>
+                    <GrindPicker
+                      value={grind}
+                      highlight={grindHighlight}
+                      onChange={(id) => {
+                        setGrind(id);
+                        setGrindHighlight(false);
+                      }}
+                    />
                   </div>
                 )}
               </div>
 
-              {/* Kısa Açıklama */}
-              <p className="text-[#5c4635] font-sans font-light text-[0.95rem] leading-[1.85] mb-10 whitespace-pre-line">
-                {product.description}
-              </p>
-
               {/* SEPET İŞLEMLERİ */}
-              <div className="flex flex-col gap-5 mb-12" ref={addToCartRef}>
-                <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col gap-5 mb-8 md:mb-12">
+                <div className="flex flex-row gap-3 md:gap-4" ref={addToCartRef}>
                   <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
                   <button
                     onClick={handleAddToCart}
                     disabled={isFiltre && !grind}
-                    className={`flex-1 flex items-center justify-center gap-3 py-4 font-mono text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border ${
+                    className={`flex-1 flex items-center justify-center gap-3 px-3 py-2 min-h-12 text-center leading-snug font-mono text-[0.65rem] font-bold tracking-[0.12em] md:tracking-[0.2em] uppercase transition-colors border ${
                       isFiltre && !grind
                         ? 'border-[#1b1b1b]/10 bg-[#1b1b1b]/10 text-[#7b6a5c] cursor-not-allowed'
                         : 'border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] hover:bg-[#3a3530] hover:border-[#3a3530]'
@@ -365,26 +433,40 @@ const Urun = () => {
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2.5 font-sans font-light text-[0.8rem] text-[#5c4635]">
-                    <span className="text-[1rem]">👀</span>
-                    <span><strong className="text-[#1b1b1b] font-medium">{viewers}</strong> müşteri bu ürünü görüntülüyor</span>
-                  </div>
+                {/* Hızlı Satın Al — doğrudan Shopify ödeme sayfası */}
+                <div className="-mt-2 md:-mt-1 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    disabled={buyNowLoading}
+                    className="flex w-full min-h-12 items-center justify-center gap-2.5 border border-[#a64b2a] bg-[#a64b2a] px-3 py-2 font-mono text-[0.65rem] font-bold uppercase tracking-[0.12em] md:tracking-[0.2em] text-[#FDFAF6] transition-colors hover:bg-[#8a3c21] hover:border-[#8a3c21] disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {buyNowLoading ? 'Ödeme sayfası açılıyor…' : (<>Hızlı Satın Al <ArrowRight className="h-4 w-4" /></>)}
+                  </button>
+                  {buyNowError && (
+                    <p className="font-sans text-[0.8rem] text-[#8b2f22]">{buyNowError}</p>
+                  )}
+                </div>
 
+                <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-2.5">
-                    <div className="font-sans text-[0.8rem] text-[#5c4635]">
-                      {remainingForFreeShipping > 0 ? (
-                        <>Ücretsiz Kargo için <strong className="text-[#1b1b1b] font-medium">{remainingForFreeShipping.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL</strong> değerinde ürün ekleyin.</>
-                      ) : (
-                        <span className="text-[#1b1b1b] font-medium">🎉 Sepetiniz ücretsiz kargo hakkı kazandı!</span>
-                      )}
-                    </div>
-                    <div className="h-1.5 w-full bg-[#1b1b1b/10] overflow-hidden">
-                      <div 
-                        className="h-full bg-[#1b1b1b] transition-all duration-700 ease-out"
-                        style={{ width: `${progressPercentage}%` }}
-                      />
-                    </div>
+                    {productHasFreeShipping ? (
+                      <div className="flex items-center gap-2 font-sans text-[0.85rem] font-medium text-[#1b1b1b]">
+                        <Truck className="h-4 w-4 text-[#c17a3a]" /> Bu ürün ücretsiz kargo ile gönderilir.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="font-sans text-[0.8rem] text-[#5c4635]">
+                          <ShippingNotice status={shipping} />
+                        </div>
+                        <div className="h-1.5 w-full bg-[#1b1b1b]/10 overflow-hidden">
+                          <div 
+                            className="h-full bg-[#1b1b1b] transition-all duration-700 ease-out"
+                            style={{ width: `${shipping.progress}%` }}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -447,7 +529,7 @@ const Urun = () => {
           <ProductInfoSection product={product} />
           
           {/* Uzun Açıklama */}
-          <div className="mt-16 md:mt-24 border-t border-[#1b1b1b]/15 pt-16 md:pt-24 pb-12 relative overflow-hidden">
+          <div className="mt-4 md:mt-6 border-t border-[#1b1b1b]/15 pt-10 md:pt-14 pb-6 md:pb-10 relative overflow-hidden">
             <div className="max-w-[900px] mx-auto relative z-10 flex flex-col items-center">
               <span className="font-mono text-[0.6rem] tracking-[0.3em] uppercase text-[#7b6a5c] mb-4 flex items-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#7b6a5c] after:content-[''] after:block after:w-5 after:h-[1px] after:bg-[#7b6a5c]">
                 Hikayesi & Profili
@@ -466,14 +548,16 @@ const Urun = () => {
 
       {/* STICKY SEPETE EKLE BARI */}
       <div 
-        className={`fixed bottom-0 left-0 right-0 z-50 bg-[#fdfaf6] border-t border-[#1b1b1b]/15 p-3 md:p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] transform transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${showStickyBar ? 'translate-y-0' : 'translate-y-full'}`}
+        ref={stickyBarRef}
+        className={`fixed bottom-0 left-0 right-0 z-50 bg-[#fdfaf6] border-t border-[#1b1b1b]/15 p-3 md:p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] transform transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden ${showStickyBar ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}
       >
-        <div className="max-w-[1440px] mx-auto w-full flex items-center justify-between px-2 md:px-10">
+        <div className="max-w-[1440px] mx-auto w-full flex items-center justify-between gap-2 px-2 md:px-10">
           
-          <div className="flex items-center gap-3 md:gap-6">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 md:gap-6">
             {product.image ? (
-              <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#f0e8dc] border border-[#1b1b1b]/15 p-1 flex items-center justify-center shrink-0">
-                <img src={product.image} alt={product.name} className="w-full h-full object-contain mix-blend-multiply" />
+              // Çerçeve boyutu aynı; ürün görseli çerçeve içinde büyütülür (görsellerin kenar boşluğu geniş)
+              <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#f0e8dc] border border-[#1b1b1b]/15 overflow-hidden flex items-center justify-center shrink-0">
+                <img src={product.image} alt={product.name} className="w-full h-full object-contain mix-blend-multiply scale-[1.6]" />
               </div>
             ) : (
               <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-[#f0e8dc] border border-[#1b1b1b]/15 p-1 flex items-center justify-center shrink-0">
@@ -481,48 +565,51 @@ const Urun = () => {
               </div>
             )}
             
-            <div className="flex flex-col justify-center gap-1.5">
-              <span className="font-serif text-[0.95rem] md:text-[1.1rem] text-[#1b1b1b] leading-none">{product.name}</span>
-              
-              <div className="flex items-center gap-2">
-                {product.variants && product.variants.length > 0 && product.variants[0].weight !== "Default Title" && (
-                  <div className="relative">
-                    <select 
-                      value={selectedVariant?.id || ''} 
+            <div className="flex min-w-0 flex-col justify-center gap-1.5">
+              <span className="truncate font-serif text-[0.95rem] md:text-[1.1rem] text-[#1b1b1b] leading-none">{product.name}</span>
+              <div className="flex min-w-0 items-center gap-2">
+                {hasMultipleVariants && product.variants[0].weight !== "Default Title" && (
+                  <div className="relative shrink-0">
+                    <select
+                      value={selectedVariant?.id || ''}
                       onChange={(e) => {
                         const variant = product.variants.find(v => v.id === e.target.value);
                         if (variant) setSelectedVariant(variant);
                       }}
-                      className="appearance-none bg-transparent border border-[#1b1b1b]/15 px-2 py-1 pr-6 font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.05em] uppercase text-[#5c4635] hover:text-[#1b1b1b] hover:border-[#1b1b1b] focus:outline-none transition-colors cursor-pointer"
+                      className="w-full appearance-none bg-transparent border border-[#1b1b1b]/15 pl-1.5 pr-5 md:px-2 md:pr-6 py-1 font-mono text-[0.62rem] md:text-[0.55rem] tracking-[0.02em] md:tracking-[0.05em] uppercase text-[#5c4635] hover:text-[#1b1b1b] hover:border-[#1b1b1b] focus:outline-none transition-colors cursor-pointer"
                     >
                       {product.variants.map(v => (
                         <option key={v.id} value={v.id}>{v.weight}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b6a5c] pointer-events-none" />
+                    <ChevronDown className="absolute right-1 md:right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b6a5c] pointer-events-none" />
                   </div>
                 )}
 
                 {isFiltre && (
-                  <div className="relative">
+                  <div className="relative min-w-0">
                     <select
+                      data-grind
                       value={grind}
-                      onChange={(e) => setGrind(e.target.value)}
-                      className={`appearance-none bg-transparent border px-2 py-1 pr-6 font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.05em] uppercase hover:text-[#1b1b1b] hover:border-[#1b1b1b] focus:outline-none transition-colors cursor-pointer ${
+                      onChange={(e) => {
+                        setGrind(e.target.value);
+                        setGrindHighlight(false);
+                      }}
+                      className={`w-full appearance-none bg-transparent border pl-1.5 pr-5 md:px-2 md:pr-6 py-1 font-mono text-[0.62rem] md:text-[0.55rem] tracking-[0.02em] md:tracking-[0.05em] uppercase hover:text-[#1b1b1b] hover:border-[#1b1b1b] focus:outline-none transition-colors cursor-pointer ${
                         grind ? 'border-[#1b1b1b]/15 text-[#5c4635]' : 'border-[#c17a3a] text-[#c17a3a]'
                       }`}
                     >
-                      <option value="" disabled>Öğütme Seçin</option>
+                      <option value="" disabled>Öğütme</option>
                       {grindOptions.map(({ id }) => (
                         <option key={id} value={id}>{id}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b6a5c] pointer-events-none" />
+                    <ChevronDown className="absolute right-1 md:right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#7b6a5c] pointer-events-none" />
                   </div>
                 )}
 
-                {(!product.variants || product.variants.length === 0 || product.variants[0].weight === "Default Title") && !isFiltre && (
-                  <span className="font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.1em] text-[#7b6a5c] uppercase">
+                {!hasMultipleVariants && !isFiltre && (
+                  <span className="hidden md:inline font-mono text-[0.5rem] md:text-[0.55rem] tracking-[0.1em] text-[#7b6a5c] uppercase">
                     Haftalık Taze Kavrulmuş
                   </span>
                 )}
@@ -530,22 +617,17 @@ const Urun = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-4 md:gap-8">
+          <div className="flex shrink-0 items-center gap-4 md:gap-8">
             <div className="flex-col items-end hidden md:flex">
               {displayOldPrice && <span className="font-mono text-[0.55rem] line-through text-[#7b6a5c] mb-0.5">{displayOldPrice}</span>}
               <span className="font-mono font-semibold text-[1.1rem] text-[#1b1b1b] leading-none">{displayPrice}</span>
             </div>
             
             <button
-              onClick={handleAddToCart}
-              disabled={isFiltre && !grind}
-              className={`flex items-center justify-center font-mono text-[0.6rem] md:text-[0.65rem] font-bold tracking-[0.2em] uppercase transition-colors border px-6 py-3.5 md:px-10 md:py-4 whitespace-nowrap ${
-                isFiltre && !grind
-                  ? 'border-[#1b1b1b]/10 bg-[#1b1b1b]/10 text-[#7b6a5c] cursor-not-allowed'
-                  : 'border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] hover:bg-[#3a3530] hover:border-[#3a3530]'
-              }`}
+              onClick={handleStickyAddToCart}
+              className="flex items-center justify-center font-mono text-[0.65rem] font-bold tracking-[0.08em] md:tracking-[0.2em] uppercase transition-colors border px-3 py-3.5 md:px-10 md:py-4 whitespace-nowrap border-[#1b1b1b] bg-[#1b1b1b] text-[#f7f0e7] hover:bg-[#3a3530] hover:border-[#3a3530]"
             >
-              {isFiltre && !grind ? ' Lütfen Türünüzü Öğütme Seçin' : 'Sepete Ekle'}
+              {isFiltre && !grind ? 'Öğütme Seçin' : 'Sepete Ekle'}
             </button>
           </div>
 

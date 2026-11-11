@@ -38,7 +38,7 @@ const NotFound = () => {
           ref={reveal.ref}
           className={`relative z-10 mx-auto max-w-3xl text-center transition-all duration-[1000ms] ease-out ${reveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}
         >
-          <div className="font-mono text-[0.58rem] tracking-[0.35em] uppercase text-[#C17A3A] mb-6 flex items-center justify-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#C17A3A] after:content-[''] after:block after:w-5 after:h-[1px] after:bg-[#C17A3A]">
+          <div className="font-mono text-[0.58rem] tracking-[0.35em] uppercase text-[#A5622A] mb-6 flex items-center justify-center gap-2 before:content-[''] before:block before:w-5 before:h-[1px] before:bg-[#A5622A] after:content-[''] after:block after:w-5 after:h-[1px] after:bg-[#A5622A]">
             Sayfa Bulunamadı
           </div>
 
@@ -52,10 +52,10 @@ const NotFound = () => {
 
           <div className="mx-auto mb-12 max-w-xl border border-[#1b1b1b]/10 bg-[#efe5d8] p-6 text-left flex items-start gap-4">
             <div className="flex h-10 w-10 items-center justify-center border border-[#1b1b1b]/10 bg-[#fdfaf6] shrink-0">
-              <Search className="h-4 w-4 text-[#c38152]" strokeWidth={1.5} />
+              <Search className="h-4 w-4 text-[#A56A3F]" strokeWidth={1.5} />
             </div>
             <div className="min-w-0 flex flex-col justify-center min-h-[2.5rem]">
-              <p className="font-mono text-[0.55rem] tracking-[0.2em] text-[#C17A3A] uppercase mb-1">
+              <p className="font-mono text-[0.55rem] tracking-[0.2em] text-[#A5622A] uppercase mb-1">
                 İstenen Adres
               </p>
               <p className="break-all font-sans text-[0.9rem] text-[#1b1b1b]">
@@ -67,7 +67,7 @@ const NotFound = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/"
-              className="group flex w-full sm:w-auto items-center justify-center gap-3 bg-[#1b1b1b] text-[#f7f0e7] px-10 py-4 border border-[#1b1b1b] hover:bg-[#C17A3A] hover:border-[#C17A3A] transition-colors"
+              className="group flex w-full sm:w-auto items-center justify-center gap-3 bg-[#1b1b1b] text-[#f7f0e7] px-10 py-4 border border-[#1b1b1b] hover:bg-[#A5622A] hover:border-[#A5622A] transition-colors"
             >
               <span className="font-mono text-[0.65rem] tracking-[0.15em] uppercase">Ana Sayfa</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

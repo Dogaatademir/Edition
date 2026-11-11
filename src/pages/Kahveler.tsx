@@ -1,8 +1,8 @@
 // src/pages/Kahveler.tsx
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { SlidersHorizontal, ArrowDownAZ, Check, ChevronDown, X } from 'lucide-react';
-import { fetchShopifyProducts, type CoffeeProduct } from '../lib/shopify';
+import { fetchShopifyProducts, isListedProduct, type CoffeeProduct } from '../lib/shopify';
 import QuickAddModal from '../components/QuickAddModal';
 import { useSeo } from '../hooks/useSeo';
 
@@ -55,6 +55,13 @@ const parsePrice = (priceStr: string): number => {
   return parseFloat(priceStr.replace(/[^\d,.-]/g, '').replace(',', '.'));
 };
 
+// Kart fiyatı: "319.90 ₺" → "319.90 TL"
+const toTL = (priceStr?: string): string => {
+  if (!priceStr) return '';
+  const value = parsePrice(priceStr);
+  return Number.isFinite(value) ? `${value.toFixed(2)} TL` : priceStr;
+};
+
 // ─── SKELETON ─────────────────────────────────────────────────────────────────
 const SkeletonCard = () => (
   <div className="flex flex-col gap-3 animate-pulse">
@@ -103,7 +110,7 @@ const ProductCard = ({ p, onQuickAdd }: { p: CoffeeProduct; onQuickAdd: (p: Coff
             </span>
           ) : <span />}
           {discount && (
-            <span className="border border-[#8b2f22] bg-[#f7f0e7] px-2 py-1 font-mono text-[0.55rem] font-bold uppercase tracking-[0.14em] text-[#8b2f22]">
+            <span className="border border-[#8b2f22] bg-[#8b2f22] px-2 py-1 font-mono text-[0.55rem] font-bold uppercase tracking-[0.14em] text-white">
               -%{discount}
             </span>
           )}
@@ -144,17 +151,25 @@ const ProductCard = ({ p, onQuickAdd }: { p: CoffeeProduct; onQuickAdd: (p: Coff
       </div>
 
       <div>
-        <h3 className="font-sans text-[0.9rem] font-medium leading-snug text-[#1b1b1b] transition-colors group-hover:text-[#C17A3A]">
-          {p.name}
+        <h3 className="font-sans text-[16px] font-medium leading-[1.35] text-[#1b1b1b] transition-colors group-hover:text-[#C17A3A]">
+          <Link to={`/urun/${p.handle}`} onClick={(e) => e.stopPropagation()}>
+            {p.name}
+          </Link>
         </h3>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className={`font-mono text-[0.82rem] font-semibold ${p.oldPrice ? 'text-[#8b2f22]' : 'text-[#1b1b1b]'}`}>
-            {p.price}
+            {toTL(p.price)}
           </span>
           {p.oldPrice && (
-            <span className="font-mono text-[0.7rem] text-[#9b9288] line-through">{p.oldPrice}</span>
+            <span className="font-mono text-[0.7rem] text-[#9b9288] line-through">{toTL(p.oldPrice)}</span>
           )}
         </div>
+        {/* Gösterilen fiyatın ait olduğu gramaj */}
+        {p.variants.length > 1 && (
+          <div className="mt-1 font-mono text-[0.62rem] uppercase tracking-[0.06em] text-[#7b6a5c]">
+            <span className="whitespace-nowrap">{(p.variants.find((v) => v.price === p.price) ?? p.variants[0]).weight} fiyatı</span>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -194,7 +209,7 @@ const Kahveler = () => {
   useEffect(() => {
     setLoading(true);
     fetchShopifyProducts()
-      .then(data => { setAllProducts(data); setDisplayedProducts(data); })
+      .then(all => { const data = all.filter(isListedProduct); setAllProducts(data); setDisplayedProducts(data); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);

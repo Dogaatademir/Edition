@@ -7,7 +7,8 @@ import { AuthProvider } from '../context/AuthContext';
 
 import Layout from '../components/Layout';
 import ScrollToTop from '../components/ScrollToTop';
-import { initPixel, pageView } from '../lib/metaPixel';
+import { pageView } from '../lib/metaPixel';
+import { applyConsent } from '../lib/consent';
 
 // Mevcut Sayfalar
 const Anasayfa = lazy(() => import('../pages/Anasayfa'));
@@ -35,10 +36,12 @@ const storefrontToken = import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN;
 function MetaPixel() {
   const location = useLocation();
 
+  // Daha önce verilmiş onaya göre izinli etiketleri yükle (Pixel dahil).
   useEffect(() => {
-    initPixel();
+    applyConsent();
   }, []);
 
+  // Pixel başlatılmadıysa (onay yoksa) pageView hiçbir şey göndermez.
   useEffect(() => {
     pageView();
   }, [location]);

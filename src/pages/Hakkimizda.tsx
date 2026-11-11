@@ -45,7 +45,7 @@ export default function Hakkimizda() {
           </p>
           <h1 className="font-serif text-[clamp(2.4rem,6vw,5.5rem)] leading-[1.05] tracking-[-0.02em] max-w-4xl">
             Kahve yalnızca bir içecek değil,{" "}
-            <em className="italic text-[#c38152]">emek ve tutkunun</em>{" "}
+            <em className="italic text-[#A56A3F]">emek ve tutkunun</em>{" "}
             birleştiği bir deneyimdir.
           </h1>
         </div>
@@ -58,7 +58,7 @@ export default function Hakkimizda() {
             ref={storyReveal.ref}
             className={`flex-1 p-8 md:p-16 lg:p-24 flex flex-col justify-center transition-all duration-1000 delay-200 ${storyReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
           >
-            <p className="mb-5 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#c38152]">
+            <p className="mb-5 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#A56A3F]">
               Biz Kimiz
             </p>
             <h2 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.1] tracking-[-0.02em] mb-8">
@@ -105,7 +105,7 @@ export default function Hakkimizda() {
           className={`mx-auto max-w-[1440px] transition-all duration-1000 ${valuesReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
         >
           <div className="border-b border-[#1b1b1b]/10 p-8 md:p-16 lg:px-24">
-            <p className="mb-4 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#c38152]">Farkımız</p>
+            <p className="mb-4 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#A56A3F]">Farkımız</p>
             <h3 className="font-serif text-[clamp(1.8rem,3vw,3rem)] leading-[1.05] tracking-[-0.02em] text-[#1b1b1b]">
               Kahvemiz <em className="italic text-[#1b1b1b]/50">Neden Özel?</em>
             </h3>
@@ -161,7 +161,7 @@ export default function Hakkimizda() {
           className={`mx-auto max-w-3xl flex flex-col items-center transition-all duration-1000 ${missionReveal.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
         >
           <div className="mb-8 h-16 w-[1px] bg-[#f7f0e7]/20" />
-          <p className="mb-6 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#c38152]">Misyonumuz</p>
+          <p className="mb-6 font-mono text-[0.58rem] uppercase tracking-[0.32em] text-[#A56A3F]">Misyonumuz</p>
           <h3 className="font-serif text-[clamp(1.6rem,3vw,2.8rem)] leading-[1.3] mb-10">
             Ankara'daki kavurma atölyemizde siparişe göre taze kavurur, özenle paketleyerek doğrudan size ulaştırırız.
           </h3>

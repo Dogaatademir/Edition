@@ -1,0 +1,8 @@
+{
+  "name": "Ücretsiz kargo (etiketli ürün)",
+  "description": "Sepette ücretsiz kargolu ürün ya da varyant varsa tüm kargoyu ücretsiz yapar.",
+  "title": "Ücretsiz kargo kuralı",
+  "body": "Sepette 'ucretsiz-kargo' etiketli bir ürün ya da 'Ücretsiz kargo' meta alanı açık bir varyant varsa, sepete başka ürünler eklense de siparişin tüm kargosu ücretsiz olur.",
+  "howTo": "Ürünün tüm varyantları için: ürüne 'ucretsiz-kargo' etiketini ekleyin. Yalnızca bir varyant için (ör. 1000 gr): ürün sayfasında o varyanta girip 'Ücretsiz kargo' meta alanını açın. Bu indirimde ayarlanacak başka bir şey yok.",
+  "error": "İndirim türü güncellenemedi. Lütfen sayfayı yenileyip tekrar deneyin."
+}

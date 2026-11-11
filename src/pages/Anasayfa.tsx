@@ -1,8 +1,8 @@
 // src/pages/Anasayfa.tsx
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import { fetchShopifyProducts, type CoffeeProduct } from "../lib/shopify";
+import { fetchShopifyProducts, isListedProduct, type CoffeeProduct } from "../lib/shopify";
 import QuickAddModal from "../components/QuickAddModal";
 import { useSeo } from "../hooks/useSeo";
 
@@ -64,12 +64,22 @@ function useScrollProgress(ref: React.RefObject<HTMLDivElement | null>) {
 }
 
 // ─── ALT BİLEŞEN: ÜRÜN KARTI ─────────────────────────────────────────────────
+// Kart fiyatı: "319.90 ₺" → "319.90 TL" (Kahveler sayfasıyla aynı)
+const toTL = (priceStr?: string): string => {
+  if (!priceStr) return "";
+  const value = parseFloat(priceStr.replace(/[^\d.,]/g, "").replace(",", "."));
+  return Number.isFinite(value) ? `${value.toFixed(2)} TL` : priceStr;
+};
+
 const ProductCard = ({
   p,
   onQuickAdd,
+  imageAspect = "aspect-[4/5]",
 }: {
   p: CoffeeProduct;
   onQuickAdd: (p: CoffeeProduct) => void;
+  /** Görsel alanının oranı (Tailwind sınıfı) */
+  imageAspect?: string;
 }) => {
   const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
@@ -107,7 +117,7 @@ const ProductCard = ({
       className="group flex w-full cursor-pointer flex-col gap-3"
     >
       <div
-        className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden bg-[#f7f0e7]"
+        className={`relative flex ${imageAspect} w-full items-center justify-center overflow-hidden bg-[#f7f0e7]`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onTouchStart={() => setHovered(true)}
@@ -122,7 +132,7 @@ const ProductCard = ({
             <span />
           )}
           {discount && (
-            <span className="border border-[#8b2f22] bg-[#fbf6ee] px-2 py-1 font-mono text-[0.58rem] font-bold tracking-[0.16em] text-[#8b2f22]">
+            <span className="border border-[#8b2f22] bg-[#8b2f22] px-2 py-1 font-mono text-[0.58rem] font-bold tracking-[0.16em] text-white">
               -%{discount}
             </span>
           )}
@@ -164,18 +174,26 @@ const ProductCard = ({
 
       <div>
         <h3 className="font-sans text-[0.95rem] font-medium leading-snug text-[#1b1b1b] transition-colors duration-300 group-hover:text-[#C17A3A]">
-          {p.name}
+          <Link to={`/urun/${p.handle}`} onClick={(e) => e.stopPropagation()}>
+            {p.name}
+          </Link>
         </h3>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className={`font-mono text-[0.85rem] font-semibold ${p.oldPrice ? "text-[#8b2f22]" : "text-[#1b1b1b]"}`}>
-            {p.price}
+            {toTL(p.price)}
           </span>
           {p.oldPrice && (
             <span className="font-mono text-[0.72rem] text-[#9b9288] line-through">
-              {p.oldPrice}
+              {toTL(p.oldPrice)}
             </span>
           )}
         </div>
+        {/* Gösterilen fiyatın ait olduğu gramaj */}
+        {p.variants.length > 1 && (
+          <div className="mt-1 font-mono text-[0.62rem] uppercase tracking-[0.06em] text-[#7b6a5c]">
+            <span className="whitespace-nowrap">{(p.variants.find((v) => v.price === p.price) ?? p.variants[0]).weight} fiyatı</span>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -196,9 +214,15 @@ const SkeletonCard = () => (
 // ─── SIKÇA SORULAN SORULAR BİLEŞENİ ───────────────────────────────────────────
 
 const PRODUCT_CATEGORY_LABELS = ["ESPRESSO", "FİLTRE", "TÜRK KAHVESİ"];
+// "Hepsini gör" seçili sekmenin kategori sayfasına gider
+const TAB_CATEGORY_PATH: Record<string, string> = {
+  "ESPRESSO": "/kahveler/espresso",
+  "FİLTRE": "/kahveler/filtre-kahve",
+  "TÜRK KAHVESİ": "/kahveler/turk-kahvesi",
+};
 const FEATURE_ITEMS = [
-  { title: "SİPARİŞE ÖZEL", subtitle: "TAZE KAVRULMUŞ" },
-  { title: "TEK KÖKEN", subtitle: "%100 ARABİCA ÇEKİRDEKLERİ" },
+  { title: "SİPARİŞE ÖZEL", subtitle: "TAZE KAVRULUR" },
+  { title: "TEK KÖKEN", subtitle: "%100 ARABICA ÇEKİRDEKLERİ" },
   { title: "SPECIALTY COFFEE", subtitle: "80+ PUAN ÇEKİRDEK" },
   { title: "2023'TEN BERİ", subtitle: "100.000+ MUTLU FİNCAN" },
 ];
@@ -358,21 +382,22 @@ function KahveKategorileriSection() {
       {/* Mobil: yatay snap scroll kartlar */}
       <section className="border-b border-[#1b1b1b]/10 bg-[#efe5d8] px-5 py-12 md:hidden">
         <div className="mb-8">
-          <p className="mb-3 font-mono text-[0.6rem] tracking-[0.32em] text-[#C17A3A]">SEÇKİMİZ</p>
+          <p className="mb-3 font-mono text-[0.75rem] tracking-[0.28em] text-[#C17A3A]">SEÇKİMİZ</p>
           <h2 className="font-serif text-[clamp(1.8rem,6vw,2.8rem)] leading-[1.1] tracking-[-0.02em]">Her damak zevkine bir kahve.</h2>
         </div>
         <div className="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
           {KAHVE_KATEGORILERI.map((step, index) => (
-            <article key={`kat-mob-${index}`} className="relative flex min-h-[380px] min-w-[82vw] snap-start flex-col justify-between overflow-hidden bg-[#1b1b1b] p-6 text-[#f7f0e7]">
-              <img src={step.image} alt={step.title} className="absolute inset-0 h-full w-full object-cover opacity-60" />
+            <article key={`kat-mob-${index}`} className="relative flex min-h-[323px] min-w-[70vw] snap-start flex-col justify-between overflow-hidden bg-[#1b1b1b] p-5 text-[#f7f0e7]">
+              {/* 1. ve 2. görseller daha açık; yazı okunsun diye biraz daha karartılır */}
+              <img src={step.image} alt={step.title} className={`absolute inset-0 h-full w-full object-cover ${index < 2 ? 'opacity-[0.45]' : 'opacity-60'}`} />
               <div className="relative z-10 flex items-center justify-between">
-                <span className="font-sans text-[0.9rem] font-medium tracking-[0.2em] text-[#c38152]">{step.label}</span>
-                <span className="text-[2rem] font-light text-[#f7f0e7]/20">0{index + 1}</span>
+                <span className="font-sans text-[0.765rem] font-medium tracking-[0.2em] text-[#c38152]">{step.label}</span>
+                <span className="text-[1.7rem] font-light text-[#f7f0e7]/20">0{index + 1}</span>
               </div>
               <div className="relative z-10">
-                <h3 className="font-serif text-[clamp(2rem,7vw,3rem)] leading-[1.05] tracking-[-0.02em]">{step.title}</h3>
-                <p className="mt-4 font-sans font-light text-[0.9rem] leading-relaxed text-[#f7f0e7]/75">{step.text}</p>
-                <button onClick={() => navigate(step.path)} className="mt-6 w-max border-b border-[#f7f0e7]/60 pb-1 font-mono text-[0.62rem] tracking-[0.2em] transition-opacity hover:opacity-60">
+                <h3 className="font-serif text-[1.7rem] leading-[1.05] tracking-[-0.02em]">{step.title}</h3>
+                <p className="mt-3 font-sans font-light text-[0.765rem] leading-relaxed text-[#f7f0e7]/75">{step.text}</p>
+                <button onClick={() => navigate(step.path)} className="mt-4 w-max border-b border-[#f7f0e7]/60 pb-1 font-mono text-[0.53rem] tracking-[0.2em] transition-opacity hover:opacity-60">
                   {step.cta} →
                 </button>
               </div>
@@ -481,7 +506,7 @@ export default function Anasayfa() {
   useEffect(() => {
     setIsPageLoaded(true);
     fetchShopifyProducts()
-      .then(setAllProducts)
+      .then((all) => setAllProducts(all.filter(isListedProduct)))
       .catch((err) => console.error("Ürünler yüklenemedi:", err))
       .finally(() => setLoading(false));
   }, []);
@@ -542,15 +567,18 @@ export default function Anasayfa() {
           ›
         </button>
 
+        {/* Sayfanın sabit ana başlığı (SEO / ekran okuyucu). Slayt başlıkları h2'dir. */}
+        <h1 className="sr-only">Edition Coffee Roastery — Taze Kavrulmuş Nitelikli Kahve: Türk Kahvesi, Filtre Kahve ve Espresso</h1>
+
         {/* İçerik: mobilde orta-alt, masaüstünde sol-alt */}
         <div className="relative z-10 flex min-h-screen flex-col">
           <div className={`mx-auto flex w-full max-w-[1500px] flex-1 flex-col items-center justify-end px-5 pb-20 text-center md:items-start md:justify-end md:px-10 md:pb-16 md:text-left lg:px-14 transition-all duration-1000 ${isPageLoaded ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"}`}>
             <p className="mb-4 font-serif text-[clamp(0.8rem,1.6vw,1.35rem)] tracking-[0.08em] text-[#f7f0e7] transition-all duration-700">
               {heroSlides[activeSlide].subtitle}
             </p>
-            <h1 className="whitespace-pre-line font-serif text-[clamp(1.9rem,3.8vw,3.6rem)] leading-[1.05] tracking-[-0.02em] transition-all duration-700">
+            <h2 className="whitespace-pre-line font-serif text-[clamp(1.9rem,3.8vw,3.6rem)] leading-[1.05] tracking-[-0.02em] transition-all duration-700">
               {heroSlides[activeSlide].title}
-            </h1>
+            </h2>
             <button
               onClick={() => navigate(heroSlides[activeSlide].link)}
               className="mt-8 border border-[#f7f0e7]/60 px-8 py-4 font-mono text-[0.62rem] tracking-[0.22em] text-[#f7f0e7] transition-all hover:bg-[#f7f0e7] hover:text-[#1b1b1b]"
@@ -674,12 +702,13 @@ export default function Anasayfa() {
             >
               {loading
                 ? Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="w-[62vw] md:w-[22%] shrink-0 snap-start"><SkeletonCard /></div>
+                    <div key={i} className="w-[56vw] md:w-[22%] shrink-0 snap-start"><SkeletonCard /></div>
                   ))
                 : tabProducts.length > 0
                   ? tabProducts.map((p) => (
-                      <div key={`tab-${p.id}`} className="w-[62vw] md:w-[22%] shrink-0 snap-start">
-                        <ProductCard p={p} onQuickAdd={(prod) => setQuickAddHandle(prod.handle)} />
+                      <div key={`tab-${p.id}`} className="w-[56vw] md:w-[22%] shrink-0 snap-start">
+                        {/* Mobil: bir tam kart + ikinci kartın ~%50'si görünür; görsel %12 daha alçak */}
+                        <ProductCard p={p} imageAspect="aspect-[10/11] md:aspect-[4/5]" onQuickAdd={(prod) => setQuickAddHandle(prod.handle)} />
                       </div>
                     ))
                   : <div className="flex w-full items-center justify-center py-16 font-mono text-[0.72rem] tracking-[0.22em] text-[#7f756b]">BU KATEGORİDE ÜRÜN BULUNAMADI.</div>
@@ -695,7 +724,7 @@ export default function Anasayfa() {
             >›</button>
           </div>
 
-          <button onClick={() => navigate("/kahveler")} className="mt-8 border-b border-[#1b1b1b] pb-1 font-mono text-[0.62rem] tracking-[0.2em] hover:opacity-60">
+          <button onClick={() => navigate(TAB_CATEGORY_PATH[activeProductTab] ?? "/kahveler")} className="mt-8 border-b border-[#1b1b1b] pb-1 font-mono text-[0.62rem] tracking-[0.2em] hover:opacity-60">
             HEPSİNİ GÖR →
           </button>
         </div>

@@ -1,8 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { getSessionId } from '../lib/session';
+import { hasConsent } from '../lib/consent';
+import { useConsent } from './useConsent';
 
 export async function trackPageView(page: string) {
+  if (!hasConsent('analytics')) return;
   const session_id = getSessionId();
 
   const { error: upsertError } = await supabase.from('active_sessions').upsert({
@@ -21,6 +24,7 @@ export async function trackEvent(
   type: 'cart_add' | 'cart_remove' | 'search' | 'checkout_start' | 'react_odeme_view',
   payload?: Record<string, unknown>
 ) {
+  if (!hasConsent('analytics')) return;
   const session_id = getSessionId();
   console.debug('[Analytics] trackEvent →', type, { session_id, payload });
 
@@ -35,8 +39,10 @@ export async function trackEvent(
 
 export function useAnalytics(pathname: string) {
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const analyticsAllowed = useConsent()?.analytics === true;
 
   useEffect(() => {
+    if (!analyticsAllowed) return;
     trackPageView(pathname);
 
     heartbeatRef.current = setInterval(async () => {
@@ -49,5 +55,5 @@ export function useAnalytics(pathname: string) {
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
     };
-  }, [pathname]);
+  }, [pathname, analyticsAllowed]);
 }
