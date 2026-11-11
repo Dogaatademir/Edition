@@ -13,6 +13,7 @@ const EVENT_LABELS: Record<string, string> = {
   cart_remove:    '✕  Sepetten çıkarıldı',
   search:         '🔍 Arama yapıldı',
   checkout_start: '💳 Shopify ödemesine geçti',
+  consent_granted: '🍪 Çerez onayı verdi',
   purchase:       '✅ Sipariş tamamlandı',
   pixel_cart_add: '🛒 Sepete eklendi (Shopify)',
   pixel_page_view: '📄 Shopify sayfa görüntülendi',
@@ -131,7 +132,7 @@ function BreakdownTable({ rows, labelFor, loading }: {
           <tr>
             <th style={{ ...th, textAlign: 'left', paddingLeft: 0 }}></th>
             <th style={th}>ziyaret</th>
-            <th style={th} title="Yalnızca çerez onayı veren ziyaretçiler">sepet*</th>
+            <th style={th}>sepet</th>
             <th style={th}>sipariş</th>
             <th style={th}>dönüşüm</th>
           </tr>
@@ -269,17 +270,17 @@ export default function AnalyticsDashboard() {
         )}
 
         <div style={{ fontSize: 11, color: '#aaa', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-          Değişimler {compareLabel}. Çerez onayı vermeyen ziyaretçiler kimliksiz sayılır; sepet ve ödeme adımları yalnızca onay verenlerde izlenir.
+          Değişimler {compareLabel}. Çerez onayı vermeyen ziyaretçiler de aynı şekilde izlenir; onların ziyareti sayfa yenilenince yeni ziyaret sayılır.
         </div>
 
         {/* KPI — satır 1 */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-          <KpiCard label="aktif ziyaretçi" value={String(data.activeVisitors)} sub="şu an · yalnızca onaylı" />
+          <KpiCard label="aktif ziyaretçi" value={String(data.activeVisitors)} sub="şu an" />
           <KpiCard
             label="ziyaretler"
             value={show(fmt.format(cur.visits))}
             sub={show(`${fmt.format(cur.consentedSessions)} onaylı · ${fmt.format(cur.anonVisits)} onaysız`)}
-            tooltip="Onay veren ziyaretçilerin oturumları + onay vermeyenlerin kimliksiz sayılan ziyaretleri. Onaysız ziyaretler sayfa yüklemesi başına sayıldığından (yenileme dahil) tahminidir."
+            tooltip="Tüm ziyaretler. Onay verenlerin ziyareti sekme açık kaldıkça sürer; onay vermeyenlerde kimlik yalnızca bellekte tutulduğundan sayfa yenilemesi yeni ziyaret sayılır, bu yüzden onaysız sayı bir miktar yüksek çıkabilir."
             delta={<Delta current={cur.visits} previous={prev.visits} />}
           />
           <KpiCard label="siparişler" value={show(fmt.format(cur.orders))} sub={rangeLabel} delta={<Delta current={cur.orders} previous={prev.orders} />} />
@@ -300,14 +301,14 @@ export default function AnalyticsDashboard() {
             label="sepette kalan"
             value={show(fmt.format(cur.cartAbandoned))}
             sub={show(`${fmtPct(cur.cartAbandonRate)} sepete ekleyenlerin`)}
-            tooltip="Sepete en az bir ürün ekleyip Shopify ödemesine hiç geçmeyen oturum sayısı (yalnızca onaylı ziyaretçiler). Oran: sepette kalan / sepete ekleyen oturum."
+            tooltip="Sepete en az bir ürün ekleyip Shopify ödemesine hiç geçmeyen oturum sayısı. Oran: sepette kalan / sepete ekleyen oturum."
             delta={<Delta current={cur.cartAbandonRate} previous={prev.cartAbandonRate} lowerIsBetter points />}
           />
           <KpiCard
             label="ödemede vazgeçen"
             value={show(fmt.format(cur.checkoutAbandoned))}
             sub={show(`${fmtPct(cur.checkoutAbandonRate)} ödemeye geçenlerin`)}
-            tooltip="Shopify ödemesine geçip sipariş vermeyen oturum sayısı (yalnızca onaylı ziyaretçiler). Oran: ödemede vazgeçen / Shopify ödemesine geçen oturum."
+            tooltip="Shopify ödemesine geçip sipariş vermeyen oturum sayısı. Oran: ödemede vazgeçen / Shopify ödemesine geçen oturum."
             delta={<Delta current={cur.checkoutAbandonRate} previous={prev.checkoutAbandonRate} lowerIsBetter points />}
           />
         </div>
@@ -318,7 +319,7 @@ export default function AnalyticsDashboard() {
             label="çerez onay oranı"
             value={show(fmtPct(cur.consentRate))}
             sub="analitik çerezlerine onay veren ziyaret"
-            tooltip="Onaylı oturum / toplam ziyaret. Düşükse sepet, ödeme ve kaynak dökümleri ziyaretçilerin küçük bir kısmını temsil eder."
+            tooltip="Analitik çerezlerine onay veren ziyaretlerin tüm ziyaretlere oranı."
             delta={<Delta current={cur.consentRate} previous={prev.consentRate} points />}
           />
         </div>
@@ -363,7 +364,7 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div style={{ ...cardStyle, flex: '1 1 220px', minWidth: 0 }}>
-            <SectionTitle>satın alma hunisi (onaylı)</SectionTitle>
+            <SectionTitle>satın alma hunisi</SectionTitle>
             {data.funnel.map((step) => (
               <div key={step.key} style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
@@ -403,8 +404,8 @@ export default function AnalyticsDashboard() {
             <SectionTitle>özet ({rangeLabel})</SectionTitle>
             {[
               { label: 'Ziyaretler',              value: fmt.format(cur.visits) },
-              { label: '· onaylı oturum',          value: fmt.format(cur.consentedSessions) },
-              { label: '· onaysız ziyaret',        value: fmt.format(cur.anonVisits) },
+              { label: '· onaylı',                 value: fmt.format(cur.consentedSessions) },
+              { label: '· onaysız',                value: fmt.format(cur.anonVisits) },
               { label: 'Sepete ekleyen oturum',   value: fmt.format(cur.cartSessions) },
               { label: 'Shopify ödemesine geçti', value: fmt.format(cur.checkoutSessions) },
               { label: 'Siparişler',              value: fmt.format(cur.orders) },
@@ -433,10 +434,9 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
         <div style={{ fontSize: 10, color: '#aaa', marginBottom: '2.5rem', lineHeight: 1.6 }}>
-          * Sepet yalnızca onaylı ziyaretçilerde izlenir.
           {trackingSinceLabel
-            ? ` Kaynak ve cihaz bilgisi ${trackingSinceLabel} itibarıyla toplanıyor; daha eski oturumlar "bilinmiyor" görünür.`
-            : ' Kaynak ve cihaz bilgisi yeni sürüm yayınlandıktan sonra toplanmaya başlar.'}
+            ? `Kaynak ve cihaz bilgisi ${trackingSinceLabel} itibarıyla toplanıyor; daha eski oturumlar "bilinmiyor" görünür.`
+            : 'Kaynak ve cihaz bilgisi yeni sürüm yayınlandıktan sonra toplanmaya başlar.'}
         </div>
 
         {/* Ürünler */}
@@ -464,7 +464,7 @@ export default function AnalyticsDashboard() {
         {/* Sayfalar + canlı olaylar */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ ...cardStyle, flex: '1 1 260px', minWidth: 0 }}>
-            <SectionTitle>sayfa görüntülemeleri ({rangeLabel}, onaylı)</SectionTitle>
+            <SectionTitle>sayfa görüntülemeleri ({rangeLabel})</SectionTitle>
             <RankedBars items={data.topPages} loading={loading} valueFor={(i) => fmt.format(i.count)} />
           </div>
 

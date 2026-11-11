@@ -27,9 +27,9 @@ interface RawData {
 // ─── Hesaplanan metrikler ─────────────────────────────────────────────────────
 
 export interface PeriodMetrics {
-  visits: number;              // tahmini toplam ziyaret (onaylı oturum + anonim ziyaret)
-  consentedSessions: number;   // analitik onayı veren oturum
-  anonVisits: number;          // onay vermeyen (kimliksiz sayılan) ziyaret
+  visits: number;              // toplam ziyaret (tüm oturumlar + eski sürümün kimliksiz kayıtları)
+  consentedSessions: number;   // analitik onayı veren ziyaret
+  anonVisits: number;          // onay vermeyen ziyaret
   consentRate: number;         // %
   cartSessions: number;
   checkoutSessions: number;
@@ -137,12 +137,34 @@ function inRange(ts: string | Date, from: Date, to: Date) {
   return t >= from.getTime() && t <= to.getTime();
 }
 
-function computeMetrics(pageViews: PageViewRow[], events: EventRow[], orders: Order[]): PeriodMetrics {
-  const consented = new Set(pageViews.map((pv) => pv.session_id));
-  const anonVisits = events.filter((e) => e.type === 'anon_visit').length;
-  // Onaydan önce anonim sayılıp aynı yüklemede onay veren ziyaretler iki kez sayılmasın
+/**
+ * Onay vermeyen oturumlar: session_start'ta consented=false olup sonradan consent_granted gelmeyenler.
+ * session_start kaydı olmayan eski oturumlar yalnızca onaylı ziyaretçilerden toplandığı için onaylı sayılır.
+ */
+function unconsentedSessionIds(events: EventRow[]): Set<string> {
+  const granted = new Set(events.filter((e) => e.type === 'consent_granted').map((e) => e.session_id));
+  return new Set(
+    events
+      .filter((e) => e.type === 'session_start' && e.payload?.consented === false && !granted.has(e.session_id))
+      .map((e) => e.session_id),
+  );
+}
+
+/** Eski sürümün (oturumsuz) kimliksiz ziyaret kayıtları; onaydan sonra oturum olarak da sayılanlar düşülür. */
+function legacyAnonVisits(events: EventRow[]): number {
+  const anon = events.filter((e) => e.type === 'anon_visit').length;
   const doubleCounted = events.filter((e) => e.type === 'session_start' && e.payload?.anonCounted === true).length;
-  const visits = Math.max(consented.size + anonVisits - doubleCounted, consented.size);
+  return Math.max(anon - doubleCounted, 0);
+}
+
+function computeMetrics(pageViews: PageViewRow[], events: EventRow[], orders: Order[]): PeriodMetrics {
+  const sessions = new Set(pageViews.map((pv) => pv.session_id));
+  const unconsented = unconsentedSessionIds(events);
+  let unconsentedInRange = 0;
+  sessions.forEach((id) => { if (unconsented.has(id)) unconsentedInRange++; });
+  const legacyAnon = legacyAnonVisits(events);
+  const visits = sessions.size + legacyAnon;
+  const consentedCount = sessions.size - unconsentedInRange;
 
   const sessionsOf = (...types: string[]) =>
     new Set(events.filter((e) => types.includes(e.type) && e.session_id !== ANON).map((e) => e.session_id));
@@ -158,9 +180,9 @@ function computeMetrics(pageViews: PageViewRow[], events: EventRow[], orders: Or
   const revenue = orders.reduce((s, o) => s + o.total, 0);
   return {
     visits,
-    consentedSessions: consented.size,
-    anonVisits: Math.max(anonVisits - doubleCounted, 0),
-    consentRate: round(pct(consented.size, visits), 1),
+    consentedSessions: consentedCount,
+    anonVisits: unconsentedInRange + legacyAnon,
+    consentRate: round(pct(consentedCount, visits), 1),
     cartSessions: cart.size,
     checkoutSessions: checkout.size,
     orders: orders.length,
@@ -179,7 +201,7 @@ function breakdown(
   field: 'source' | 'device',
   events: EventRow[],
   orders: Order[],
-  consentedSessions: Set<string>,
+  sessions: Set<string>,
 ): BreakdownRow[] {
   const UNKNOWN = 'bilinmiyor';
   const sessionKey = new Map<string, string>();
@@ -193,9 +215,9 @@ function breakdown(
     return rows.get(key)!;
   };
 
-  // Onaylı oturumlar (kaynak bilgisi olmayan eski oturumlar "bilinmiyor")
-  consentedSessions.forEach((id) => { row(sessionKey.get(id) ?? UNKNOWN).visits++; });
-  // Onay vermeyen ziyaretler; onaydan önce sayılıp sonra onay verenler zaten oturum olarak sayıldı
+  // Oturumlar (kaynak bilgisi olmayan eski oturumlar "bilinmiyor")
+  sessions.forEach((id) => { row(sessionKey.get(id) ?? UNKNOWN).visits++; });
+  // Eski sürümün kimliksiz kayıtları; onaydan önce sayılıp sonra onay verenler zaten oturum olarak sayıldı
   events.forEach((e) => { if (e.type === 'anon_visit') row(String(e.payload?.[field] ?? UNKNOWN)).visits++; });
   events.forEach((e) => {
     if (e.type === 'session_start' && e.payload?.anonCounted === true) {
@@ -253,9 +275,10 @@ export function computeAnalytics(raw: RawData, range: DateRange): Omit<Analytics
 
   const current = computeMetrics(pvCur, evCur, ordersCur);
   const previous = computeMetrics(pvPrev, evPrev, ordersPrev);
-  const consented = new Set(pvCur.map((pv) => pv.session_id));
+  const sessions = new Set(pvCur.map((pv) => pv.session_id));
+  const unconsented = unconsentedSessionIds(evCur);
 
-  // Günlük: onaylı oturum + anonim ziyaret + sipariş
+  // Günlük: onaylı ziyaret + onaysız ziyaret + sipariş
   const days = new Map<string, DailyStat>();
   for (const d = new Date(start); d <= now; d.setDate(d.getDate() + 1)) {
     days.set(dayKey(d), { date: dayLabel(d), consented: 0, anonymous: 0, orders: 0, convRate: 0 });
@@ -266,7 +289,11 @@ export function computeAnalytics(raw: RawData, range: DateRange): Omit<Analytics
     if (!daySessions.has(k)) daySessions.set(k, new Set());
     daySessions.get(k)!.add(pv.session_id);
   });
-  daySessions.forEach((set, k) => { const d = days.get(k); if (d) d.consented = set.size; });
+  daySessions.forEach((set, k) => {
+    const d = days.get(k);
+    if (!d) return;
+    set.forEach((id) => { if (unconsented.has(id)) d.anonymous++; else d.consented++; });
+  });
   evCur.forEach((e) => {
     const d = days.get(dayKey(new Date(e.ts)));
     if (!d) return;
@@ -276,14 +303,14 @@ export function computeAnalytics(raw: RawData, range: DateRange): Omit<Analytics
   ordersCur.forEach((o) => { const d = days.get(dayKey(o.ts)); if (d) d.orders++; });
   const daily = [...days.values()].map((d) => ({ ...d, convRate: round(pct(d.orders, d.consented + d.anonymous)) }));
 
-  // Huni yalnızca onaylı oturumlar üzerinden (onaysız ziyaretçinin sepet hareketi izlenmez)
-  const consentedOrders = ordersCur.filter((o) => consented.has(o.sessionId)).length;
-  const base = current.consentedSessions;
+  // Huni oturumlar üzerinden (eski sürümün oturumsuz kayıtlarında sepet bilgisi yok)
+  const sessionOrders = ordersCur.filter((o) => sessions.has(o.sessionId)).length;
+  const base = sessions.size;
   const funnel: FunnelStep[] = [
-    { key: 'sessions', label: 'Onaylı oturumlar',        count: base,                     pct: 100 },
+    { key: 'sessions', label: 'Oturumlar',               count: base,                     pct: 100 },
     { key: 'cart',     label: 'Sepete eklendi',          count: current.cartSessions,     pct: round(pct(current.cartSessions, base)) },
     { key: 'checkout', label: 'Shopify ödemesine geçti', count: current.checkoutSessions, pct: round(pct(current.checkoutSessions, base)) },
-    { key: 'purchase', label: 'Sipariş tamamlandı',      count: consentedOrders,          pct: round(pct(consentedOrders, base)) },
+    { key: 'purchase', label: 'Sipariş tamamlandı',      count: sessionOrders,            pct: round(pct(sessionOrders, base)) },
   ];
 
   const productCounts = new Map<string, { count: number; revenue: number }>();
@@ -318,8 +345,8 @@ export function computeAnalytics(raw: RawData, range: DateRange): Omit<Analytics
     previous,
     daily,
     funnel,
-    sources: breakdown('source', evCur, ordersCur, consented),
-    devices: breakdown('device', evCur, ordersCur, consented),
+    sources: breakdown('source', evCur, ordersCur, sessions),
+    devices: breakdown('device', evCur, ordersCur, sessions),
     topProducts: rank(productCounts),
     topCartProducts: rank(cartCounts),
     topPages: rank(pageCounts),
