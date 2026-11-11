@@ -1,67 +1,101 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { useRealtimeAnalytics } from '../hooks/useRealtimeAnalytics';
-import { useShopifyAnalytics, type DateRange } from '../hooks/useShopifyAnalytics';
+import {
+  useAnalyticsData, type DateRange, type BreakdownRow, type RankedItem,
+} from '../hooks/useAnalyticsData';
+import AnalyticsReset from './AnalyticsReset';
 
 const EVENT_LABELS: Record<string, string> = {
-  // — React Tarafı —
-  cart_add:          '🛒 Sepete eklendi (React)',
-  cart_remove:       '✕  Sepetten çıkarıldı',
-  search:            '🔍 Arama yapıldı',
-  react_odeme_view:  '👁️ React /odeme sayfasına girdi',
-  cart_abandoned:    '⚠️ Sepet terk edildi (3dk)',
-
-  // — Shopify Pixel (Otomatik) —
-  checkout_start:    '💳 Shopify ödeme ekranı açıldı',
-  purchase:          '✅ Sipariş tamamlandı (Shopify)',
-  pixel_cart_add:    '🛒 Sepete eklendi (Shopify)',
-  pixel_page_view:   '📄 Shopify sayfa görüntülendi',
+  cart_add:       '🛒 Sepete eklendi',
+  cart_remove:    '✕  Sepetten çıkarıldı',
+  search:         '🔍 Arama yapıldı',
+  checkout_start: '💳 Shopify ödemesine geçti',
+  purchase:       '✅ Sipariş tamamlandı',
+  pixel_cart_add: '🛒 Sepete eklendi (Shopify)',
+  pixel_page_view: '📄 Shopify sayfa görüntülendi',
 };
 
 const RANGE_LABELS: Record<DateRange, string> = {
   today: 'bugün',
-  week:  'bu hafta',
+  week:  'son 7 gün',
   month: 'bu ay',
 };
 
-// Fix 7: Intl formatters inside a factory to avoid SSR locale divergence
-function createFormatters() {
-  return {
-    fmt:    new Intl.NumberFormat('tr-TR'),
-    fmtCur: new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 }),
-  };
+const COMPARE_LABELS: Record<DateRange, string> = {
+  today: 'düne göre (aynı saate kadar)',
+  week:  'önceki 7 güne göre',
+  month: 'geçen ayın aynı dönemine göre',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  direkt: 'Direkt / yer imi',
+  google: 'Google (organik)',
+  google_ads: 'Google Ads',
+  meta_ads: 'Meta reklamları',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  whatsapp: 'WhatsApp',
+  bilinmiyor: 'Bilinmiyor (eski kayıt)',
+};
+
+const BLUE = '#2563eb';
+const GREEN = '#639922';
+const RED = '#c0392b';
+const GREY = '#9ca3af';
+
+const fmt = new Intl.NumberFormat('tr-TR');
+const fmtCur = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 });
+const fmtPct = (n: number, d = 1) => `%${n.toFixed(d)}`;
+
+// ─── Küçük bileşenler ─────────────────────────────────────────────────────────
+
+const cardStyle = { border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' } as const;
+
+function EmptyState({ loading, text = 'henüz veri yok' }: { loading: boolean; text?: string }) {
+  return <div style={{ color: '#aaa', fontSize: 13 }}>{loading ? 'yükleniyor...' : text}</div>;
 }
 
-// Fix 6: Single EmptyState component instead of repeated inline blocks
-function EmptyState({ loading }: { loading: boolean }) {
+function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <div style={{ color: '#aaa', fontSize: 13 }}>
-      {loading ? 'yükleniyor...' : 'henüz veri yok'}
+    <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>
+      {children}
     </div>
   );
 }
 
-// Fix 2: Tooltip opens from the KpiCard div (position:relative), not from the ⓘ span
-function KpiCard({ label, value, sub, tooltip }: { label: string; value: string; sub?: string; tooltip?: string }) {
+/** Önceki döneme göre değişim. `lowerIsBetter` terk oranları gibi düşmesi iyi olan metrikler için. */
+function Delta({ current, previous, lowerIsBetter = false, points = false }: {
+  current: number; previous: number; lowerIsBetter?: boolean; points?: boolean;
+}) {
+  if (previous === 0 && current === 0) return <span style={{ color: '#bbb' }}>değişim yok</span>;
+  if (previous === 0) return <span style={{ color: '#bbb' }}>önceki: 0</span>;
+  const diff = points ? current - previous : ((current - previous) / previous) * 100;
+  if (Math.abs(diff) < 0.05) return <span style={{ color: '#bbb' }}>değişim yok</span>;
+  const good = lowerIsBetter ? diff < 0 : diff > 0;
+  return (
+    <span style={{ color: good ? GREEN : RED }}>
+      {diff > 0 ? '▲' : '▼'} {points ? `${Math.abs(diff).toFixed(1)} puan` : `%${Math.abs(diff).toFixed(0)}`}
+    </span>
+  );
+}
+
+function KpiCard({ label, value, sub, tooltip, delta }: {
+  label: string; value: string; sub?: ReactNode; tooltip?: string; delta?: ReactNode;
+}) {
   const [show, setShow] = useState(false);
   return (
-    <div
-      style={{
-        flex: 1, minWidth: 0, padding: '18px 20px',
-        border: '0.5px solid #e5e5e5', borderRadius: 8,
-        position: 'relative',
-      }}
-    >
+    <div style={{ flex: '1 1 180px', minWidth: 0, padding: '18px 20px', border: '0.5px solid #e5e5e5', borderRadius: 8, position: 'relative' }}>
       <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
         {label}
         {tooltip && (
           <span
             onMouseEnter={() => setShow(true)}
             onMouseLeave={() => setShow(false)}
-            style={{ cursor: 'default', color: '#ccc', fontSize: 10, lineHeight: 1, userSelect: 'none' }}
+            onClick={() => setShow((s) => !s)}
+            style={{ cursor: 'help', color: '#bbb', fontSize: 10, lineHeight: 1, userSelect: 'none' }}
           >
             ⓘ
           </span>
@@ -69,15 +103,13 @@ function KpiCard({ label, value, sub, tooltip }: { label: string; value: string;
       </div>
       <div style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1 }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>{sub}</div>}
+      {delta && <div style={{ fontSize: 11, marginTop: 4 }}>{delta}</div>}
       {tooltip && show && (
         <span style={{
           position: 'absolute', top: '100%', left: 0, zIndex: 10,
-          background: '#1a1a1a', color: '#eee',
-          fontSize: 11, lineHeight: 1.5, padding: '8px 12px',
-          borderRadius: 6, width: 280, whiteSpace: 'normal',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-          marginTop: 4, fontWeight: 400, letterSpacing: 0,
-          textTransform: 'none',
+          background: '#1a1a1a', color: '#eee', fontSize: 11, lineHeight: 1.5, padding: '8px 12px',
+          borderRadius: 6, width: 280, maxWidth: '80vw', whiteSpace: 'normal',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)', marginTop: 4,
         }}>
           {tooltip}
         </span>
@@ -86,117 +118,136 @@ function KpiCard({ label, value, sub, tooltip }: { label: string; value: string;
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function BreakdownTable({ rows, labelFor, loading }: {
+  rows: BreakdownRow[]; labelFor: (key: string) => string; loading: boolean;
+}) {
+  if (rows.length === 0) return <EmptyState loading={loading} />;
+  const th = { textAlign: 'right' as const, fontWeight: 400, color: '#aaa', padding: '0 0 8px 8px', fontSize: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em' };
+  const td = { textAlign: 'right' as const, padding: '7px 0 7px 8px', borderTop: '0.5px solid #f0f0f0', color: '#333', whiteSpace: 'nowrap' as const };
   return (
-    <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>
-      {children}
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <thead>
+          <tr>
+            <th style={{ ...th, textAlign: 'left', paddingLeft: 0 }}></th>
+            <th style={th}>ziyaret</th>
+            <th style={th} title="Yalnızca çerez onayı veren ziyaretçiler">sepet*</th>
+            <th style={th}>sipariş</th>
+            <th style={th}>dönüşüm</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key}>
+              <td style={{ ...td, textAlign: 'left', paddingLeft: 0, color: '#555', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {labelFor(r.key)}
+              </td>
+              <td style={td}>{fmt.format(r.visits)}</td>
+              <td style={td}>{fmt.format(r.carts)}</td>
+              <td style={td}>{fmt.format(r.orders)}</td>
+              <td style={td}>{fmtPct(r.convRate, 1)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
+function RankedBars({ items, loading, color = BLUE, valueFor, empty }: {
+  items: RankedItem[]; loading: boolean; color?: string; valueFor: (i: RankedItem) => string; empty?: string;
+}) {
+  if (items.length === 0) return <EmptyState loading={loading} text={empty} />;
+  const max = Math.max(...items.map((i) => i.revenue ?? i.count), 1);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {items.map((i) => (
+        <div key={i.name}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 3 }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#333' }}>{i.name}</span>
+            <span style={{ color: '#888', flexShrink: 0 }}>{valueFor(i)}</span>
+          </div>
+          <div style={{ height: 4, background: '#f0f0f0', borderRadius: 2 }}>
+            <div style={{ height: '100%', borderRadius: 2, width: `${((i.revenue ?? i.count) / max) * 100}%`, background: color, transition: 'width 0.4s ease' }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const tooltipStyle = { fontFamily: 'monospace', fontSize: 12, border: '0.5px solid #e5e5e5', borderRadius: 6 };
+
+// ─── Panel ────────────────────────────────────────────────────────────────────
+
 export default function AnalyticsDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>('month');
-  const { activeVisitors, liveEvents, isConnected, isReconnecting } = useRealtimeAnalytics();
-  const agg = useShopifyAnalytics(dateRange);
+  const data = useAnalyticsData(dateRange);
+  const { current: cur, previous: prev, loading } = data;
 
-  // Fix 7: formatters created once per component instance (safe for SSR)
-  const { fmt, fmtCur } = useMemo(() => createFormatters(), []);
-
-  // Fix 4: track seen event ids in a Set state so new arrivals are reliably detected
+  // Canlı olaylarda yeni gelenleri kısa süre vurgula
   const [seenEventIds, setSeenEventIds] = useState<Set<number> | null>(null);
-  useEffect(() => {
-    if (seenEventIds === null && liveEvents.length > 0) {
-      setSeenEventIds(new Set(liveEvents.map(e => e.id)));
-    }
-  }, [liveEvents, seenEventIds]);
-
-  // When new events arrive, add them to the seen set after the flash animation (1.8s)
   const pendingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (seenEventIds === null) return;
-    const newIds = liveEvents.map(e => e.id).filter(id => !seenEventIds.has(id));
-    if (newIds.length === 0) return;
-    if (pendingRef.current) clearTimeout(pendingRef.current);
+    if (data.liveEvents.length === 0) return;
     pendingRef.current = setTimeout(() => {
-      setSeenEventIds(prev => {
-        if (!prev) return prev;
-        const next = new Set(prev);
-        newIds.forEach(id => next.add(id));
+      setSeenEventIds((prevSeen) => {
+        const next = new Set(prevSeen ?? []);
+        data.liveEvents.forEach((e) => next.add(e.id));
         return next;
       });
-    }, 1800);
-    return () => {
-      if (pendingRef.current) clearTimeout(pendingRef.current);
-    };
-  }, [liveEvents, seenEventIds]);
-
+    }, prevSeenDelay(seenEventIds));
+    return () => { if (pendingRef.current) clearTimeout(pendingRef.current); };
+  }, [data.liveEvents]); // eslint-disable-line react-hooks/exhaustive-deps
   const isNewEvent = useCallback(
     (id: number) => seenEventIds !== null && !seenEventIds.has(id),
     [seenEventIds],
   );
 
   const rangeLabel = RANGE_LABELS[dateRange];
-  const timeLabel  = agg.lastUpdated
-    ? agg.lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+  const compareLabel = COMPARE_LABELS[dateRange];
+  const timeLabel = data.lastUpdated
+    ? data.lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
     : '—';
+  const show = (value: string) => (loading && !data.lastUpdated ? '—' : value);
 
-  // Fix 3: memoize tick skip values so they don't re-create on every render
-  const tickSkip = useMemo(
-    () => agg.dailyStats.length <= 7 ? 1 : 5,
-    [agg.dailyStats.length],
-  );
-  const tickFormatter = useCallback(
-    (val: string, idx: number) => idx % tickSkip === 0 ? val : '',
-    [tickSkip],
-  );
+  const tickSkip = useMemo(() => (data.daily.length <= 7 ? 1 : 5), [data.daily.length]);
+  const tickFormatter = useCallback((val: string, idx: number) => (idx % tickSkip === 0 ? val : ''), [tickSkip]);
 
-  // Fix 5: safe display values that never show NaN while loading
-  const safeAbandonmentRate  = agg.loading ? '—' : `%${agg.abandonmentRate.toFixed(1)}`;
-  const safeConversionRate   = agg.loading ? '—' : `%${agg.conversionRate.toFixed(2)}`;
-  const safeTotalRevenue     = agg.loading ? '—' : fmtCur.format(agg.totalRevenue);
-  const safeAov              = agg.loading ? '—' : fmtCur.format(agg.aov);
-  const safeTotalOrders      = agg.loading ? '—' : fmt.format(agg.totalOrders);
-  const safeTotalSessions    = agg.loading ? '—' : fmt.format(agg.totalSessions);
-  const safeCartAddSessions  = agg.loading ? '—' : fmt.format(agg.cartAddSessions);
-  const safeOdemeView        = agg.loading ? '—' : fmt.format(agg.odemeViewSessions);
-  const safeCheckout         = agg.loading ? '—' : fmt.format(agg.checkoutSessions);
-  const safeAbandonedCarts   = agg.loading ? '—' : fmt.format(agg.abandonedCarts);
+  const trackingSinceLabel = data.trackingSince
+    ? new Date(data.trackingSince).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
 
   return (
     <>
       <style>{`
-        @keyframes flashGreen {
-          0%   { background: rgba(99,153,34,0.18); }
-          100% { background: transparent; }
-        }
+        @keyframes flashGreen { 0% { background: rgba(99,153,34,0.18); } 100% { background: transparent; } }
         .live-event-new { animation: flashGreen 1.8s ease forwards; }
       `}</style>
 
-      <div style={{ fontFamily: 'monospace', padding: '2rem', maxWidth: 960, margin: '0 auto' }}>
+      <div style={{ fontFamily: 'monospace', padding: '2rem 16px', maxWidth: 960, margin: '0 auto' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: 10 }}>
+        {/* Başlık */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{
               display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-              background: isConnected ? '#639922' : '#ccc',
-              boxShadow: isConnected ? '0 0 0 3px rgba(99,153,34,0.25)' : 'none',
+              background: data.error ? RED : data.lastUpdated ? GREEN : '#ccc',
+              boxShadow: data.lastUpdated && !data.error ? '0 0 0 3px rgba(99,153,34,0.25)' : 'none',
             }} />
             <span style={{ fontSize: 13, color: '#888', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {isReconnecting ? 'yeniden bağlanıyor...' : 'canlı analitik'}
+              {data.error ? 'bağlantı hatası' : 'canlı analitik'}
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* Date range selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: 4 }}>
-              {(['today', 'week', 'month'] as DateRange[]).map(r => (
+              {(['today', 'week', 'month'] as DateRange[]).map((r) => (
                 <button
                   key={r}
                   onClick={() => setDateRange(r)}
                   style={{
-                    fontFamily: 'monospace', fontSize: 11, cursor: 'pointer',
-                    padding: '4px 10px', borderRadius: 4,
+                    fontFamily: 'monospace', fontSize: 11, cursor: 'pointer', padding: '4px 10px', borderRadius: 4,
                     border: dateRange === r ? '0.5px solid #333' : '0.5px solid #e5e5e5',
                     background: dateRange === r ? '#333' : 'transparent',
                     color: dateRange === r ? '#fff' : '#888',
@@ -211,260 +262,247 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        {/* KPI Cards — row 1 */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-          <KpiCard label="aktif ziyaretçi"  value={String(activeVisitors)}   sub="şu an" />
-          <KpiCard label="oturumlar"        value={safeTotalSessions}         sub={rangeLabel} />
-          <KpiCard label="siparişler"       value={safeTotalOrders}           sub={rangeLabel} />
-          <KpiCard label="brüt satışlar"    value={safeTotalRevenue}          sub={rangeLabel} />
+        {data.error && (
+          <div style={{ fontSize: 12, color: RED, border: `0.5px solid ${RED}`, borderRadius: 6, padding: '8px 12px', marginBottom: '1rem' }}>
+            Veriler alınamadı: {data.error}
+          </div>
+        )}
+
+        <div style={{ fontSize: 11, color: '#aaa', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+          Değişimler {compareLabel}. Çerez onayı vermeyen ziyaretçiler kimliksiz sayılır; sepet ve ödeme adımları yalnızca onay verenlerde izlenir.
         </div>
 
-        {/* KPI Cards — row 2 */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+        {/* KPI — satır 1 */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+          <KpiCard label="aktif ziyaretçi" value={String(data.activeVisitors)} sub="şu an · yalnızca onaylı" />
+          <KpiCard
+            label="ziyaretler"
+            value={show(fmt.format(cur.visits))}
+            sub={show(`${fmt.format(cur.consentedSessions)} onaylı · ${fmt.format(cur.anonVisits)} onaysız`)}
+            tooltip="Onay veren ziyaretçilerin oturumları + onay vermeyenlerin kimliksiz sayılan ziyaretleri. Onaysız ziyaretler sayfa yüklemesi başına sayıldığından (yenileme dahil) tahminidir."
+            delta={<Delta current={cur.visits} previous={prev.visits} />}
+          />
+          <KpiCard label="siparişler" value={show(fmt.format(cur.orders))} sub={rangeLabel} delta={<Delta current={cur.orders} previous={prev.orders} />} />
+          <KpiCard label="brüt satışlar" value={show(fmtCur.format(cur.revenue))} sub={rangeLabel} delta={<Delta current={cur.revenue} previous={prev.revenue} />} />
+        </div>
+
+        {/* KPI — satır 2 */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
           <KpiCard
             label="dönüşüm oranı"
-            value={safeConversionRate}
-            sub={rangeLabel}
+            value={show(fmtPct(cur.conversionRate, 2))}
+            sub="sipariş / toplam ziyaret"
+            tooltip="Tüm siparişlerin, onaylı ve onaysız tüm ziyaretlere oranı."
+            delta={<Delta current={cur.conversionRate} previous={prev.conversionRate} points />}
+          />
+          <KpiCard label="ort. sipariş değeri" value={show(fmtCur.format(cur.aov))} sub={rangeLabel} delta={<Delta current={cur.aov} previous={prev.aov} />} />
+          <KpiCard
+            label="sepette kalan"
+            value={show(fmt.format(cur.cartAbandoned))}
+            sub={show(`${fmtPct(cur.cartAbandonRate)} sepete ekleyenlerin`)}
+            tooltip="Sepete en az bir ürün ekleyip Shopify ödemesine hiç geçmeyen oturum sayısı (yalnızca onaylı ziyaretçiler). Oran: sepette kalan / sepete ekleyen oturum."
+            delta={<Delta current={cur.cartAbandonRate} previous={prev.cartAbandonRate} lowerIsBetter points />}
           />
           <KpiCard
-            label="ort. sipariş değeri"
-            value={safeAov}
-            sub={rangeLabel}
-          />
-          <KpiCard
-            label="sepet terk oranı"
-            value={safeAbandonmentRate}
-            sub={rangeLabel}
-            tooltip="Sepete ürün ekleyip ödeme adımına geçmeyen oturumların oranı. Formül: (sepete ekleyen - checkout başlatan) / sepete ekleyen × 100"
-          />
-          <KpiCard
-            label="terk edilen sepet"
-            value={safeAbandonedCarts}
-            sub={`${rangeLabel} · sepete ekleyip checkout'a geçmeyen oturum`}
-            tooltip="Sepete en az bir ürün ekleyip ödeme adımına hiç geçmeden ayrılan unique oturum sayısı. Formül: sepete ekleyen oturum − checkout başlatan oturum"
+            label="ödemede vazgeçen"
+            value={show(fmt.format(cur.checkoutAbandoned))}
+            sub={show(`${fmtPct(cur.checkoutAbandonRate)} ödemeye geçenlerin`)}
+            tooltip="Shopify ödemesine geçip sipariş vermeyen oturum sayısı (yalnızca onaylı ziyaretçiler). Oran: ödemede vazgeçen / Shopify ödemesine geçen oturum."
+            delta={<Delta current={cur.checkoutAbandonRate} previous={prev.checkoutAbandonRate} lowerIsBetter points />}
           />
         </div>
 
-        {/* Sessions over time */}
-        <div style={{ marginBottom: '2.5rem', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
-          <SectionTitle>zamana göre oturumlar</SectionTitle>
-          {agg.dailyStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={agg.dailyStats} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gradSessions" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#2563eb" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+        {/* KPI — satır 3: onay */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+          <KpiCard
+            label="çerez onay oranı"
+            value={show(fmtPct(cur.consentRate))}
+            sub="analitik çerezlerine onay veren ziyaret"
+            tooltip="Onaylı oturum / toplam ziyaret. Düşükse sepet, ödeme ve kaynak dökümleri ziyaretçilerin küçük bir kısmını temsil eder."
+            delta={<Delta current={cur.consentRate} previous={prev.consentRate} points />}
+          />
+        </div>
+
+        {/* Ziyaretler */}
+        <div style={{ ...cardStyle, marginBottom: '2.5rem' }}>
+          <SectionTitle>zamana göre ziyaretler</SectionTitle>
+          {data.daily.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={data.daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#aaa' }} tickFormatter={tickFormatter} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: '#aaa' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ fontFamily: 'monospace', fontSize: 12, border: '0.5px solid #e5e5e5', borderRadius: 6 }}
-                  formatter={(v: number | undefined) => [fmt.format(v ?? 0), 'Oturum']}
-                />
-                <Area type="monotone" dataKey="sessions" stroke="#2563eb" strokeWidth={1.5} fill="url(#gradSessions)" dot={false} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(v: number | undefined, name) => [fmt.format(v ?? 0), name]} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Area type="monotone" dataKey="consented" name="Onaylı" stackId="v" stroke={BLUE} fill={BLUE} fillOpacity={0.25} strokeWidth={1.5} />
+                <Area type="monotone" dataKey="anonymous" name="Onaysız" stackId="v" stroke={GREY} fill={GREY} fillOpacity={0.2} strokeWidth={1.5} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div style={{ height: 200, display: 'flex', alignItems: 'center' }}>
-              <EmptyState loading={agg.loading} />
-            </div>
+            <div style={{ height: 220, display: 'flex', alignItems: 'center' }}><EmptyState loading={loading} /></div>
           )}
         </div>
 
-        {/* Two columns: conversion rate chart + funnel */}
+        {/* Dönüşüm + huni */}
         <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
-
-          <div style={{ flex: 2, minWidth: 280, border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
+          <div style={{ ...cardStyle, flex: '2 1 280px', minWidth: 0 }}>
             <SectionTitle>zamana göre dönüşüm oranı</SectionTitle>
-            {agg.dailyStats.length > 0 ? (
+            {data.daily.length > 0 ? (
               <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={agg.dailyStats} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <LineChart data={data.daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#aaa' }} tickFormatter={tickFormatter} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: '#aaa' }} axisLine={false} tickLine={false} unit="%" />
-                  <Tooltip
-                    contentStyle={{ fontFamily: 'monospace', fontSize: 12, border: '0.5px solid #e5e5e5', borderRadius: 6 }}
-                    formatter={(v: number | undefined) => [`%${v ?? 0}`, 'Dönüşüm']}
-                  />
-                  <Line type="monotone" dataKey="convRate" stroke="#2563eb" strokeWidth={1.5} dot={false} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number | undefined) => [`%${v ?? 0}`, 'Dönüşüm']} />
+                  <Line type="monotone" dataKey="convRate" stroke={BLUE} strokeWidth={1.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ height: 180, display: 'flex', alignItems: 'center' }}>
-                <EmptyState loading={agg.loading} />
-              </div>
+              <div style={{ height: 180, display: 'flex', alignItems: 'center' }}><EmptyState loading={loading} /></div>
             )}
           </div>
 
-          <div style={{ flex: 1, minWidth: 220, border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
-            <SectionTitle>dönüşüm oranı dökümü</SectionTitle>
-            {agg.funnel.map(step => (
+          <div style={{ ...cardStyle, flex: '1 1 220px', minWidth: 0 }}>
+            <SectionTitle>satın alma hunisi (onaylı)</SectionTitle>
+            {data.funnel.map((step) => (
               <div key={step.key} style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                   <span style={{ color: '#555' }}>{step.label}</span>
                   <span style={{ color: '#888' }}>{fmt.format(step.count)}</span>
                 </div>
                 <div style={{ height: 6, background: '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', borderRadius: 3,
-                    width: `${Math.min(step.pct, 100)}%`,
-                    background: step.key === 'purchase' ? '#639922' : '#2563eb',
-                    transition: 'width 0.4s ease',
-                  }} />
+                  <div style={{ height: '100%', borderRadius: 3, width: `${Math.min(step.pct, 100)}%`, background: step.key === 'purchase' ? GREEN : BLUE, transition: 'width 0.4s ease' }} />
                 </div>
                 <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>%{step.pct}</div>
               </div>
             ))}
-            {agg.funnel.length === 0 && <EmptyState loading={agg.loading} />}
+            {data.funnel.length === 0 && <EmptyState loading={loading} />}
           </div>
         </div>
 
-        {/* Orders bar + revenue breakdown */}
+        {/* Siparişler + özet */}
         <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
-
-          <div style={{ flex: 2, minWidth: 280, border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
+          <div style={{ ...cardStyle, flex: '2 1 280px', minWidth: 0 }}>
             <SectionTitle>zamana göre siparişler</SectionTitle>
-            {agg.dailyStats.length > 0 ? (
+            {data.daily.length > 0 ? (
               <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={agg.dailyStats} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <BarChart data={data.daily} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#aaa' }} tickFormatter={tickFormatter} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: '#aaa' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ fontFamily: 'monospace', fontSize: 12, border: '0.5px solid #e5e5e5', borderRadius: 6 }}
-                    formatter={(v: number | undefined) => [fmt.format(v ?? 0), 'Sipariş']}
-                  />
-                  <Bar dataKey="purchases" fill="#2563eb" radius={[3, 3, 0, 0]} maxBarSize={20} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number | undefined) => [fmt.format(v ?? 0), 'Sipariş']} />
+                  <Bar dataKey="orders" fill={BLUE} radius={[3, 3, 0, 0]} maxBarSize={20} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ height: 160, display: 'flex', alignItems: 'center' }}>
-                <EmptyState loading={agg.loading} />
-              </div>
+              <div style={{ height: 160, display: 'flex', alignItems: 'center' }}><EmptyState loading={loading} /></div>
             )}
           </div>
 
-          <div style={{ flex: 1, minWidth: 200, border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
-            <SectionTitle>toplam satış dökümü</SectionTitle>
+          <div style={{ ...cardStyle, flex: '1 1 220px', minWidth: 0 }}>
+            <SectionTitle>özet ({rangeLabel})</SectionTitle>
             {[
-              { label: 'Brüt satışlar',          value: safeTotalRevenue },
-              { label: 'Ort. sipariş değ.',       value: safeAov },
-              { label: 'Siparişler',              value: safeTotalOrders },
-              { label: 'Sepete eklendi',          value: safeCartAddSessions },
-              { label: 'Checkout başladı',        value: safeOdemeView },
-              { label: 'Shopify ödeme sayfası',   value: safeCheckout },
-              { label: 'Terk edilen sepet',       value: safeAbandonedCarts },
-              { label: 'Sepet terk oranı',        value: safeAbandonmentRate },
-              { label: 'Dönüşüm',                 value: safeConversionRate },
-            ].map(row => (
-              <div key={row.label} style={{
-                display: 'flex', justifyContent: 'space-between',
-                padding: '7px 0', borderBottom: '0.5px solid #f0f0f0', fontSize: 12,
-              }}>
+              { label: 'Ziyaretler',              value: fmt.format(cur.visits) },
+              { label: '· onaylı oturum',          value: fmt.format(cur.consentedSessions) },
+              { label: '· onaysız ziyaret',        value: fmt.format(cur.anonVisits) },
+              { label: 'Sepete ekleyen oturum',   value: fmt.format(cur.cartSessions) },
+              { label: 'Shopify ödemesine geçti', value: fmt.format(cur.checkoutSessions) },
+              { label: 'Siparişler',              value: fmt.format(cur.orders) },
+              { label: 'Brüt satışlar',           value: fmtCur.format(cur.revenue) },
+              { label: 'Sepette kalma oranı',     value: fmtPct(cur.cartAbandonRate) },
+              { label: 'Ödemede vazgeçme oranı',  value: fmtPct(cur.checkoutAbandonRate) },
+              { label: 'Dönüşüm',                 value: fmtPct(cur.conversionRate, 2) },
+            ].map((row) => (
+              <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '7px 0', borderBottom: '0.5px solid #f0f0f0', fontSize: 12 }}>
                 <span style={{ color: '#555' }}>{row.label}</span>
-                <span style={{ color: '#333' }}>{row.value}</span>
+                <span style={{ color: '#333' }}>{show(row.value)}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Top products */}
-        <div style={{ marginBottom: '2.5rem', border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
-          <SectionTitle>en çok satan ürünler ({rangeLabel})</SectionTitle>
-          {agg.topProducts.length === 0 ? (
-            <EmptyState loading={agg.loading} />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {agg.topProducts.map(({ name, revenue, orders }) => {
-                const maxRev = agg.topProducts[0]?.revenue ?? 1;
-                return (
-                  <div key={name}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%', color: '#333' }}>
-                        {name}
-                      </span>
-                      <span style={{ color: '#888', flexShrink: 0 }}>
-                        {fmtCur.format(revenue)} · {fmt.format(orders)} sipariş
-                      </span>
-                    </div>
-                    <div style={{ height: 4, background: '#f0f0f0', borderRadius: 2 }}>
-                      <div style={{
-                        height: '100%', borderRadius: 2,
-                        width: `${(revenue / maxRev) * 100}%`,
-                        background: '#639922',
-                        transition: 'width 0.4s ease',
-                      }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        {/* Kaynaklar + cihazlar */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+          <div style={{ ...cardStyle, flex: '3 1 320px', minWidth: 0 }}>
+            <SectionTitle>trafik kaynakları</SectionTitle>
+            <BreakdownTable rows={data.sources} loading={loading} labelFor={(k) => SOURCE_LABELS[k] ?? k} />
+          </div>
+          <div style={{ ...cardStyle, flex: '2 1 260px', minWidth: 0 }}>
+            <SectionTitle>cihazlar</SectionTitle>
+            <BreakdownTable rows={data.devices} loading={loading} labelFor={(k) => SOURCE_LABELS[k] ?? k} />
+          </div>
+        </div>
+        <div style={{ fontSize: 10, color: '#aaa', marginBottom: '2.5rem', lineHeight: 1.6 }}>
+          * Sepet yalnızca onaylı ziyaretçilerde izlenir.
+          {trackingSinceLabel
+            ? ` Kaynak ve cihaz bilgisi ${trackingSinceLabel} itibarıyla toplanıyor; daha eski oturumlar "bilinmiyor" görünür.`
+            : ' Kaynak ve cihaz bilgisi yeni sürüm yayınlandıktan sonra toplanmaya başlar.'}
         </div>
 
-        {/* Pages + Live events */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-
-          <div style={{ flex: 1, minWidth: 240, border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
-            <SectionTitle>sayfalar (tüm zamanlar)</SectionTitle>
-            {agg.topPages.length === 0 ? (
-              <EmptyState loading={agg.loading} />
-            ) : (
-              agg.topPages.map(({ page, count }) => {
-                const max = agg.topPages[0]?.count ?? 1;
-                return (
-                  <div key={page} style={{ marginBottom: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
-                        {page}
-                      </span>
-                      <span style={{ color: '#888', flexShrink: 0 }}>{fmt.format(count)}</span>
-                    </div>
-                    <div style={{ height: 4, background: '#f0f0f0', borderRadius: 2 }}>
-                      <div style={{
-                        height: '100%', borderRadius: 2,
-                        width: `${(count / max) * 100}%`,
-                        background: '#2563eb',
-                      }} />
-                    </div>
-                  </div>
-                );
-              })
+        {/* Ürünler */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: '2.5rem', flexWrap: 'wrap' }}>
+          <div style={{ ...cardStyle, flex: '1 1 280px', minWidth: 0 }}>
+            <SectionTitle>en çok satan ürünler ({rangeLabel})</SectionTitle>
+            <RankedBars
+              items={data.topProducts}
+              loading={loading}
+              color={GREEN}
+              valueFor={(i) => `${i.revenue ? fmtCur.format(i.revenue) + ' · ' : ''}${fmt.format(i.count)} adet`}
+            />
+            {data.topProducts.some((p) => p.name === 'Ürün bilgisi yok') && (
+              <div style={{ fontSize: 10, color: '#aaa', marginTop: 10 }}>
+                &quot;Ürün bilgisi yok&quot;: Shopify pixel&apos;i güncellenmeden önceki siparişler.
+              </div>
             )}
           </div>
+          <div style={{ ...cardStyle, flex: '1 1 280px', minWidth: 0 }}>
+            <SectionTitle>en çok sepete eklenen ({rangeLabel})</SectionTitle>
+            <RankedBars items={data.topCartProducts} loading={loading} valueFor={(i) => `${fmt.format(i.count)} adet`} />
+          </div>
+        </div>
 
-          <div style={{ flex: 1, minWidth: 240, border: '0.5px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
-            <SectionTitle>canlı olaylar</SectionTitle>
-            {liveEvents.length === 0 ? (
-              <div style={{ color: '#aaa', fontSize: 13 }}>olay bekleniyor...</div>
+        {/* Sayfalar + canlı olaylar */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ ...cardStyle, flex: '1 1 260px', minWidth: 0 }}>
+            <SectionTitle>sayfa görüntülemeleri ({rangeLabel}, onaylı)</SectionTitle>
+            <RankedBars items={data.topPages} loading={loading} valueFor={(i) => fmt.format(i.count)} />
+          </div>
+
+          <div style={{ ...cardStyle, flex: '1 1 260px', minWidth: 0 }}>
+            <SectionTitle>son olaylar</SectionTitle>
+            {data.liveEvents.length === 0 ? (
+              <EmptyState loading={loading} text="olay bekleniyor..." />
             ) : (
-              liveEvents.map(ev => (
+              data.liveEvents.map((ev) => (
                 <div
                   key={ev.id}
                   className={isNewEvent(ev.id) ? 'live-event-new' : undefined}
-                  style={{
-                    display: 'flex', gap: 10, padding: '7px 0',
-                    borderBottom: '0.5px solid #f0f0f0', fontSize: 12, alignItems: 'baseline',
-                  }}
+                  style={{ display: 'flex', gap: 10, padding: '7px 0', borderBottom: '0.5px solid #f0f0f0', fontSize: 12, alignItems: 'baseline' }}
                 >
                   <span style={{ color: '#aaa', minWidth: 60, fontSize: 10, flexShrink: 0 }}>
                     {new Date(ev.ts).toLocaleTimeString('tr-TR')}
                   </span>
-                  <span style={{ flexShrink: 0 }}>{EVENT_LABELS[String(ev.type)] ?? String(ev.type)}</span>
+                  <span style={{ flexShrink: 0 }}>{EVENT_LABELS[ev.type] ?? ev.type}</span>
                   {ev.payload?.productTitle ? (
                     <span style={{ color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       — {String(ev.payload.productTitle)}
                     </span>
+                  ) : ev.type === 'purchase' && ev.payload?.total ? (
+                    <span style={{ color: '#888' }}>— {fmtCur.format(Number(ev.payload.total))}</span>
                   ) : null}
                 </div>
               ))
             )}
           </div>
         </div>
+
+        <AnalyticsReset />
       </div>
     </>
   );
+}
+
+// İlk yüklemede olayları hemen "görüldü" say (vurgulama yok), sonrakilerde animasyon bitince
+function prevSeenDelay(seen: Set<number> | null) {
+  return seen === null ? 0 : 1800;
 }

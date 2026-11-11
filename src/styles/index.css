@@ -7,3 +7,22 @@
 body {
   @apply bg-bg-primary text-text-primary antialiased;
 }
+/* WhatsApp float button pulse ring */
+@keyframes wa-pulse {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  60%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.wa-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #25D366;
+  z-index: -1;
+  animation: wa-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wa-pulse::before { animation: none; display: none; }
+}

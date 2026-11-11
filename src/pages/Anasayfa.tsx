@@ -521,7 +521,7 @@ export default function Anasayfa() {
 
   const featuredHandles = [
     "dunya-filtre-kahveleri-tanisma",
-    "hisaralti®-turk-kahvesi-seti",
+    "hisaralti-turk-kahvesi-seti",
     "edition-ozel-filtre-harman",
     "ultragold-espresso-ozel-harman",
   ];
