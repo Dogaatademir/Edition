@@ -1,3 +1,10 @@
+// src/lib/session.ts
+// Ziyaret (oturum) kimliği.
+//  - Analitik onayı VARSA: sessionStorage'da tutulur, sekme açık kaldıkça sayfa yenilemelerinde de aynı kalır.
+//  - Onay YOKSA: yalnızca bellekte tutulur, tarayıcıya hiçbir şey yazılmaz. Sayfa yenilenince yeni kimlik üretilir.
+//  - Ziyaret sırasında onay verilirse bellekteki kimlik saklanır, böylece oturum kesintisiz devam eder.
+import { hasConsent } from './consent';
+
 const SESSION_KEY = 'sfa_session_id';
 
 function generateId(): string {
@@ -13,11 +20,22 @@ function generateId(): string {
   });
 }
 
+let memoryId: string | null = null;
+
 export function getSessionId(): string {
-  let id = sessionStorage.getItem(SESSION_KEY);
-  if (!id) {
-    id = generateId();
-    sessionStorage.setItem(SESSION_KEY, id);
+  if (hasConsent('analytics')) {
+    try {
+      let id = sessionStorage.getItem(SESSION_KEY);
+      if (!id) {
+        id = memoryId ?? generateId();
+        sessionStorage.setItem(SESSION_KEY, id);
+      }
+      memoryId = id;
+      return id;
+    } catch {
+      // depolama kapalı: bellekteki kimlikle devam et
+    }
   }
-  return id;
+  if (!memoryId) memoryId = generateId();
+  return memoryId;
 }

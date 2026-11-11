@@ -1,3 +1,8 @@
+// src/hooks/useAnalytics.ts
+// Site içi (Supabase) ziyaret analitiği. Tüm ziyaretçiler için aynı olaylar kaydedilir;
+// fark yalnızca oturum kimliğinin nerede tutulduğundadır (bkz. lib/session.ts):
+// onay verenlerde sessionStorage, vermeyenlerde yalnızca bellek. Onay vermeyenlerin tam referrer
+// adresi saklanmaz, yalnızca kaynak adı (ör. "instagram") kaydedilir.
 import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { getSessionId } from '../lib/session';
@@ -8,34 +13,16 @@ import { initialTraffic, isLikelyBot } from '../lib/traffic';
 // Yönetim sayfaları ziyaret olarak sayılmaz.
 const EXCLUDED_PATHS = ['/analiz'];
 const isExcluded = (path: string) => EXCLUDED_PATHS.some((p) => path.startsWith(p));
+const trackingDisabled = () => typeof window === 'undefined' || isLikelyBot();
 
-const SESSION_START_KEY = 'sfa_session_started';
-export const ANONYMOUS_SESSION_ID = 'anonymous';
+// Bu sayfa yüklemesinde session_start gönderilen kimlikler ve onaysız başlayanlar (bellekte)
+const startedSessions = new Set<string>();
+const startedWithoutConsent = new Set<string>();
 
-// Bu sayfa yüklemesinde anonim ziyaret gönderildi mi? (bellekte tutulur, hiçbir yere yazılmaz)
-let anonymousVisitSent = false;
+export type TrackedEvent = 'cart_add' | 'cart_remove' | 'search' | 'checkout_start' | 'session_start' | 'consent_granted';
 
-export async function trackPageView(page: string) {
-  if (!hasConsent('analytics')) return;
-  const session_id = getSessionId();
-
-  const { error: upsertError } = await supabase.from('active_sessions').upsert({
-    session_id,
-    page,
-    referrer: document.referrer || null,
-    last_seen: new Date().toISOString(),
-  });
-  if (upsertError) console.error('[Analytics] trackPageView upsert error:', upsertError.message);
-
-  const { error: insertError } = await supabase.from('page_views').insert({ session_id, page });
-  if (insertError) console.error('[Analytics] trackPageView insert error:', insertError.message);
-}
-
-export async function trackEvent(
-  type: 'cart_add' | 'cart_remove' | 'search' | 'checkout_start' | 'session_start',
-  payload?: Record<string, unknown>
-) {
-  if (!hasConsent('analytics')) return;
+export async function trackEvent(type: TrackedEvent, payload?: Record<string, unknown>) {
+  if (trackingDisabled()) return;
   const session_id = getSessionId();
   console.debug('[Analytics] trackEvent →', type, { session_id, payload });
 
@@ -48,54 +35,59 @@ export async function trackEvent(
   if (error) console.error('[Analytics] trackEvent error:', error.message, { type, payload });
 }
 
-/** Onaylı oturumun kaynağını ve cihazını oturum başına bir kez kaydeder. */
-function trackSessionStart() {
-  try {
-    if (sessionStorage.getItem(SESSION_START_KEY)) return;
-    sessionStorage.setItem(SESSION_START_KEY, '1');
-  } catch {
-    return;
-  }
-  // anonCounted: bu ziyaret onaydan önce anonim olarak zaten sayıldıysa toplamda iki kez sayılmasın
-  trackEvent('session_start', { ...initialTraffic, anonCounted: anonymousVisitSent });
+export async function trackPageView(page: string) {
+  if (trackingDisabled()) return;
+  const session_id = getSessionId();
+
+  const { error: upsertError } = await supabase.from('active_sessions').upsert({
+    session_id,
+    page,
+    referrer: hasConsent('analytics') ? document.referrer || null : null,
+    last_seen: new Date().toISOString(),
+  });
+  if (upsertError) console.error('[Analytics] trackPageView upsert error:', upsertError.message);
+
+  const { error: insertError } = await supabase.from('page_views').insert({ session_id, page });
+  if (insertError) console.error('[Analytics] trackPageView insert error:', insertError.message);
 }
 
-/**
- * Analitik onayı OLMAYAN ziyaretleri kimliksiz olarak sayar.
- * Çerez/depolama kullanılmaz, oturum kimliği yoktur; yalnızca kaynak, cihaz ve giriş sayfası gönderilir.
- * Sayfa yüklemesi başına en fazla bir kez gönderilir.
- */
-async function trackAnonymousVisit() {
-  if (anonymousVisitSent || hasConsent('analytics') || isLikelyBot() || !initialTraffic) return;
-  if (isExcluded(initialTraffic.landing)) return;
-  anonymousVisitSent = true;
-  const { error } = await supabase.from('analytics_events').insert({
-    session_id: ANONYMOUS_SESSION_ID,
-    type: 'anon_visit',
-    payload: {
-      source: initialTraffic.source,
-      medium: initialTraffic.medium,
-      campaign: initialTraffic.campaign,
-      device: initialTraffic.device,
-      landing: initialTraffic.landing,
-    },
-  });
-  if (error) console.error('[Analytics] anon_visit error:', error.message);
+/** Oturumun kaynağını, cihazını ve onay durumunu oturum başına bir kez kaydeder. */
+function trackSessionStart(consented: boolean) {
+  const id = getSessionId();
+  const storageKey = `sfa_session_started_${id}`;
+  if (startedSessions.has(id)) return;
+  startedSessions.add(id);
+  if (!consented) startedWithoutConsent.add(id);
+  if (consented) {
+    try {
+      // Onaylı oturum sekmede yeniden yüklenirse tekrar gönderilmesin
+      if (sessionStorage.getItem(storageKey)) return;
+      sessionStorage.setItem(storageKey, '1');
+    } catch { /* depolama kapalı */ }
+  }
+  // Ziyaret yönetim sayfasında başladıysa giriş sayfası olarak ilk izlenen sayfayı kullan
+  const landing = initialTraffic && !isExcluded(initialTraffic.landing) ? initialTraffic.landing : window.location.pathname;
+  trackEvent('session_start', { ...initialTraffic, landing, consented });
 }
 
 export function useAnalytics(pathname: string) {
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const analyticsAllowed = useConsent()?.analytics === true;
+  const consented = useConsent()?.analytics === true;
   const excluded = isExcluded(pathname);
 
-  // Onay verilmemişse (henüz karar verilmemiş veya reddedilmiş) ziyareti anonim say.
   useEffect(() => {
-    if (!analyticsAllowed && !excluded) trackAnonymousVisit();
-  }, [analyticsAllowed, excluded]);
+    if (excluded || trackingDisabled()) return;
+    trackSessionStart(consented);
+    // Onaysız başlayan ziyaret sırasında onay verildiyse işaretle (aynı oturum kimliği devam eder)
+    const id = getSessionId();
+    if (consented && startedWithoutConsent.has(id)) {
+      startedWithoutConsent.delete(id);
+      trackEvent('consent_granted');
+    }
+  }, [consented, excluded]);
 
   useEffect(() => {
-    if (!analyticsAllowed || excluded) return;
-    trackSessionStart();
+    if (excluded || trackingDisabled()) return;
     trackPageView(pathname);
 
     heartbeatRef.current = setInterval(async () => {
@@ -108,5 +100,5 @@ export function useAnalytics(pathname: string) {
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
     };
-  }, [pathname, analyticsAllowed, excluded]);
+  }, [pathname, excluded]);
 }
