@@ -1,6 +1,28 @@
 https://kahvetoptancim.com/*     https://editioncoffee.com.tr/:splat   301!
 https://www.kahvetoptancim.com/* https://editioncoffee.com.tr/:splat   301!
 
+# Shopify Online Store'un eski yolları → React sayfaları (kalıcı yönlendirme)
+/pages/iletisim                       /iletisim                    301!
+/pages/contact                        /iletisim                    301!
+/pages/hakkimizda                     /hakkimizda                  301!
+/pages/about                          /hakkimizda                  301!
+/pages/about-us                       /hakkimizda                  301!
+/pages/sss                            /sss                         301!
+/pages/faq                            /sss                         301!
+/pages/toptan                         /toptan                      301!
+/pages/referanslar                    /referanslar                 301!
+/pages/*                              /                            301!
+/products/:handle                     /urun/:handle                301!
+/collections/:c/products/:handle      /urun/:handle                301!
+/collections/*                        /kahveler                    301!
+/policies/privacy-policy              /gizlilik-sozlesmesi         301!
+/policies/refund-policy               /iade-sartlari               301!
+/policies/terms-of-service            /mesafeli-satis-sozlesmesi   301!
+/policies/*                           /sss                         301!
+/cart                                 /odeme                       301!
+/blogs/*                              /                            301!
+/search                               /kahveler                    301!
+
 /robots.txt   /robots.txt   200
 /sitemap.xml  /sitemap.xml  200
 /*    /index.html   200

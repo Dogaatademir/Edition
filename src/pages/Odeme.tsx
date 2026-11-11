@@ -13,6 +13,7 @@ import { cartItemKey, canonicalGrind } from '../lib/cartKey';
 import ShippingNotice from '../components/ShippingNotice';
 import FreeShippingSuggestions from '../components/FreeShippingSuggestions';
 import QuickAddModal from '../components/QuickAddModal';
+import { useSeo } from '../hooks/useSeo';
 
 interface CartContextType {
   cartItems: any[];
@@ -23,6 +24,7 @@ interface CartContextType {
 }
 
 export default function Odeme() {
+  useSeo("Ödeme | Edition Coffee Roastery", "Edition Coffee Roastery sepet ve ödeme.", undefined, null, true);
   const { cartItems, updateQuantity, removeFromCart, replaceCart } = useCart() as CartContextType;
   const navigate = useNavigate();
 

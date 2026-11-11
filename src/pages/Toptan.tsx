@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Coffee, Truck, Sliders, Users } from "lucide-react";
+import { useSeo } from '../hooks/useSeo';
 
 function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
@@ -47,6 +48,7 @@ const SERVICES = [
 
 
 export default function Toptan() {
+  useSeo("Toptan Kahve | Edition Coffee Roastery", "Kafe, ofis ve işletmeler için toptan taze kavrulmuş kahve. Türk kahvesi, filtre kahve ve espresso için özel fiyat ve düzenli tedarik.", "/toptan");
   const heroReveal    = useReveal();
   const introReveal   = useReveal();
   const servicesReveal = useReveal();

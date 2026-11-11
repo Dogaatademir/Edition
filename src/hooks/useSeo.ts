@@ -6,6 +6,20 @@ const DEFAULT_DESCRIPTION =
   'Edition Coffee Roastery — taze kavrulmuş Türk kahvesi, filtre kahve ve espresso. Yüzyıllık geleneği modern kavurmayla buluşturuyoruz. 850 TL üzeri kargo ücretsiz.';
 const JSON_LD_ID = 'seo-json-ld';
 
+function setRobots(noindex: boolean) {
+  let meta = document.querySelector('meta[name="robots"]');
+  if (!noindex) {
+    meta?.remove();
+    return;
+  }
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'robots');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', 'noindex, follow');
+}
+
 function setMetaDescription(content: string) {
   let meta = document.querySelector('meta[name="description"]');
   if (!meta) {
@@ -18,6 +32,7 @@ function setMetaDescription(content: string) {
 
 /**
  * Sayfa başlığını, açıklamasını, canonical adresini ve (varsa) JSON-LD yapısal verisini yönetir.
+ * noindex=true verilirse <meta name="robots" content="noindex, follow"> eklenir (404, ödeme vb.).
  * Bileşen kaldırıldığında (sayfa değişiminde) değerleri varsayılana döndürür; böylece
  * önceki sayfanın başlığı veya canonical adresi bir sonraki sayfada kalmaz.
  */
@@ -26,12 +41,14 @@ export function useSeo(
   description: string,
   canonicalPath?: string,
   jsonLd?: Record<string, unknown> | null,
+  noindex = false,
 ) {
   const jsonLdString = jsonLd ? JSON.stringify(jsonLd) : null;
 
   useEffect(() => {
     document.title = title;
     setMetaDescription(description);
+    setRobots(noindex);
 
     if (canonicalPath) {
       let link = document.querySelector('link[rel="canonical"]');
@@ -57,8 +74,9 @@ export function useSeo(
     return () => {
       document.title = DEFAULT_TITLE;
       setMetaDescription(DEFAULT_DESCRIPTION);
+      setRobots(false);
       document.querySelector('link[rel="canonical"]')?.remove();
       document.getElementById(JSON_LD_ID)?.remove();
     };
-  }, [title, description, canonicalPath, jsonLdString]);
+  }, [title, description, canonicalPath, jsonLdString, noindex]);
 }

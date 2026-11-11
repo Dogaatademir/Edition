@@ -22,6 +22,7 @@ const STATIC_PAGES = [
   { path: '/sss', changefreq: 'monthly', priority: '0.5' },
   { path: '/toptan', changefreq: 'monthly', priority: '0.5' },
   { path: '/iletisim', changefreq: 'monthly', priority: '0.4' },
+  { path: '/referanslar', changefreq: 'monthly', priority: '0.4' },
 ];
 
 const env = { ...loadEnv('production', root, 'VITE_'), ...process.env };

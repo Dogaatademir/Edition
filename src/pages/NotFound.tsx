@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowRight, Home, ShoppingBag, Search } from 'lucide-react';
+import { useSeo } from '../hooks/useSeo';
 
 function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
@@ -18,6 +19,7 @@ function useReveal(threshold = 0.12) {
 }
 
 const NotFound = () => {
+  useSeo("Sayfa Bulunamadı | Edition Coffee Roastery", "Aradığınız sayfa bulunamadı.", undefined, null, true);
   const location = useLocation();
   const reveal = useReveal();
 

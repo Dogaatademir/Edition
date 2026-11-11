@@ -165,6 +165,7 @@ const Urun = () => {
     product ? toMetaDescription(product.description) : '',
     product ? seoPath : undefined,
     product && seoPath ? buildProductJsonLd(product, seoPath) : null,
+    !loading && !product,
   );
 
   // Sticky Bar — ana "Sepete Ekle" düğmesi ekranın üstünden (sabit menünün altından)

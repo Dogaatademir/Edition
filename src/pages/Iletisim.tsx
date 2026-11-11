@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mail, MapPin, Clock, ArrowRight, CheckCircle2, Phone } from "lucide-react";
 import emailjs from "@emailjs/browser";
+import { useSeo } from '../hooks/useSeo';
 
 const IconInstagram = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -53,6 +54,7 @@ const inputClass = "peer w-full border-b border-[#1b1b1b]/20 bg-transparent py-3
 const labelClass = "absolute left-0 -top-3.5 font-mono text-[0.55rem] tracking-[0.15em] uppercase text-[#7b6a5c] transition-all peer-placeholder-shown:top-3 peer-placeholder-shown:text-[0.9rem] peer-placeholder-shown:font-sans peer-placeholder-shown:tracking-normal peer-placeholder-shown:normal-case peer-focus:-top-3.5 peer-focus:font-mono peer-focus:text-[0.55rem] peer-focus:tracking-[0.15em] peer-focus:uppercase peer-focus:text-[#1b1b1b]";
 
 export default function Iletisim() {
+  useSeo("İletişim | Edition Coffee Roastery", "Edition Coffee Roastery ile iletişime geçin: Bağlıca, Etimesgut/Ankara adresimiz, telefon (0312) 980 00 88, e-posta ve çalışma saatlerimiz.", "/iletisim");
   const heroReveal    = useReveal();
   const contentReveal = useReveal();
   const [isSubmitted, setIsSubmitted] = useState(false);

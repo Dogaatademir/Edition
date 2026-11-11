@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Building2 } from "lucide-react";
+import { useSeo } from '../hooks/useSeo';
 
 function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
@@ -27,6 +28,7 @@ const REFERANSLAR = [
 ];
 
 export default function Referanslar() {
+  useSeo("Referanslar | Edition Coffee Roastery", "Edition Coffee Roastery'nin kahve tedarik ettiği kurum ve işletmeler.", "/referanslar");
   const heroReveal = useReveal();
   const gridReveal = useReveal();
 

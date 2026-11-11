@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Flame, Globe, Award, Coffee } from "lucide-react";
+import { useSeo } from '../hooks/useSeo';
 
 function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
@@ -19,6 +20,7 @@ function useReveal(threshold = 0.12) {
 const storyImage = "https://images.unsplash.com/photo-1587734195503-904fca47e0e9?q=80&w=1600&auto=format&fit=crop";
 
 export default function Hakkimizda() {
+  useSeo("Hakkımızda | Edition Coffee Roastery", "Edition Coffee Roastery'nin hikâyesi: Ankara'da taze kavrulan Türk kahvesi, filtre kahve ve espresso. Kavurma anlayışımızı ve değerlerimizi tanıyın.", "/hakkimizda");
   const heroReveal   = useReveal();
   const storyReveal  = useReveal();
   const valuesReveal = useReveal();

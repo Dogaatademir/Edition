@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ArrowRight,
 } from 'lucide-react';
+import { useSeo } from '../hooks/useSeo';
 
 function useReveal(threshold = 0.12) {
   const ref = useRef<HTMLDivElement>(null);
@@ -89,6 +90,7 @@ const FAQAccordion = ({ group }: { group: FAQGroup }) => {
 };
 
 const Sss = () => {
+  useSeo("Sıkça Sorulan Sorular | Edition Coffee Roastery", "Sipariş, kargo, ödeme, iade ve kahve öğütme seçenekleri hakkında sıkça sorulan sorular ve yanıtları.", "/sss");
   const heroReveal = useReveal();
   const infoReveal = useReveal(0.2);
 

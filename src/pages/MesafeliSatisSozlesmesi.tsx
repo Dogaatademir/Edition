@@ -1,4 +1,7 @@
+import { useSeo } from '../hooks/useSeo';
+
 export default function MesafeliSatisSozlesmesi() {
+  useSeo("Mesafeli Satış Sözleşmesi | Edition Coffee Roastery", "Edition Coffee Roastery mesafeli satış sözleşmesi.", "/mesafeli-satis-sozlesmesi");
   return (
     <div className="min-h-screen bg-[#f7f0e7] px-5 py-24 md:px-10">
       <div className="mx-auto max-w-[800px]">

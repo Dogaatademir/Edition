@@ -1,9 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { useSeo } from '../hooks/useSeo';
 
 const SESSION_KEY = 'analiz_authed';
 const ADMIN_PASSWORD = import.meta.env.VITE_ANALYTICS_PASSWORD;
 
 export default function AnalyticsGate({ children }: { children: ReactNode }) {
+  useSeo('Analiz | Edition Coffee Roastery', 'Yönetim paneli.', undefined, null, true);
   const [authed, setAuthed] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
