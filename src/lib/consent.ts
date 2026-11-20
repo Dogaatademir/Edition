@@ -107,8 +107,37 @@ let clarityLoaded = false;
 let googleAdsLoaded = false;
 let metaPixelLoaded = false;
 
+// Clarity bu sayfalarda kayıt yapmaz (yönetim paneli)
+const CLARITY_EXCLUDED_PATHS = ['/analiz'];
+const isClarityExcluded = (path: string) => CLARITY_EXCLUDED_PATHS.some((p) => path.startsWith(p));
+let clarityPaused = false;
+
+type ClarityFn = (...args: unknown[]) => void;
+const clarityApi = () => (window as unknown as { clarity?: ClarityFn }).clarity;
+
+/**
+ * Rota değiştikçe çağrılır: hariç tutulan sayfada Clarity'yi duraklatır,
+ * çıkınca devam ettirir (veya onay varsa ilk kez yükler).
+ */
+export function syncClarityWithRoute(pathname: string) {
+  if (isClarityExcluded(pathname)) {
+    if (clarityLoaded && !clarityPaused) {
+      clarityApi()?.('pause');
+      clarityPaused = true;
+    }
+    return;
+  }
+  if (clarityPaused) {
+    clarityApi()?.('resume');
+    clarityPaused = false;
+  } else if (hasConsent('analytics')) {
+    loadClarity();
+  }
+}
+
 function loadClarity() {
   if (clarityLoaded) return;
+  if (isClarityExcluded(window.location.pathname)) return;
   clarityLoaded = true;
   const w = window as unknown as { clarity?: { (...args: unknown[]): void; q?: unknown[] } };
   w.clarity =

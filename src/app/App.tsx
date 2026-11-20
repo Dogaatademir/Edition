@@ -8,7 +8,7 @@ import { AuthProvider } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import ScrollToTop from '../components/ScrollToTop';
 import { pageView } from '../lib/metaPixel';
-import { applyConsent } from '../lib/consent';
+import { applyConsent, syncClarityWithRoute } from '../lib/consent';
 
 // Mevcut Sayfalar
 const Anasayfa = lazy(() => import('../pages/Anasayfa'));
@@ -45,6 +45,11 @@ function MetaPixel() {
   useEffect(() => {
     pageView();
   }, [location]);
+
+  // Clarity /analiz sayfasını kaydetmez
+  useEffect(() => {
+    syncClarityWithRoute(location.pathname);
+  }, [location.pathname]);
 
   return null;
 }

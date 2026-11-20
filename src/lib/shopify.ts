@@ -13,6 +13,8 @@ export interface ProductVariant {
   available?: boolean;
   /** Varyant meta alanı custom.ucretsiz_kargo = true (yalnızca bu varyant ücretsiz kargolu) */
   freeShipping?: boolean;
+  /** Varyant meta alanı custom.tukenmek_uzere = true ("Tükenmek Üzere!" etiketi) */
+  lowStock?: boolean;
 }
 
 export interface CoffeeProduct {
@@ -20,6 +22,7 @@ export interface CoffeeProduct {
   handle: string;
   name: string;
   description: string;
+  descriptionHtml: string;
   price: string;
   oldPrice?: string;
   image?: string;
@@ -28,6 +31,7 @@ export interface CoffeeProduct {
   origin?: string;
   process?: string;
   roast?: string;
+  beanType?: string;
   notes: string[];
   code?: string;
   category: string[];
@@ -62,6 +66,7 @@ export function mapShopifyProduct(p: any): CoffeeProduct {
       hoverImage: variantMetaMap["2_gorsel"]?.reference?.image?.url ?? undefined,
       available: typeof v.availableForSale === "boolean" ? v.availableForSale : undefined,
       freeShipping: variantMetaMap["ucretsiz_kargo"]?.value === "true",
+      lowStock: variantMetaMap["tukenmek_uzere"]?.value === "true",
     };
   });
 
@@ -70,6 +75,7 @@ export function mapShopifyProduct(p: any): CoffeeProduct {
     handle: p.handle,
     name: p.title,
     description: p.description || "Bu seçki için henüz bir açıklama girilmedi.",
+    descriptionHtml: p.descriptionHtml || "",
     price: `${price.toFixed(2)} ₺`,
     oldPrice: compareAt > price ? `${compareAt.toFixed(2)} ₺` : undefined,
     image: p.featuredImage?.url,
@@ -77,6 +83,7 @@ export function mapShopifyProduct(p: any): CoffeeProduct {
     origin: metaMap["origin"] ?? undefined,
     process: metaMap["process"] ?? undefined,
     roast: metaMap["roast"] ?? undefined,
+    beanType: metaMap["bean_type"] ?? undefined,
     notes: metaMap["notes"] ? metaMap["notes"].split(",").map((n: string) => n.trim()) : [],
     code: metaMap["code"] ?? p.handle.toUpperCase().slice(0, 6),
     category: p.tags || [],
@@ -119,6 +126,7 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
               metafields(identifiers: [
                 { namespace: "custom", key: "2_gorsel" }
                 { namespace: "custom", key: "ucretsiz_kargo" }
+                { namespace: "custom", key: "tukenmek_uzere" }
               ]) {
                 key
                 value
@@ -135,6 +143,7 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
             { namespace: "custom", key: "origin" }
             { namespace: "custom", key: "process" }
             { namespace: "custom", key: "roast" }
+            { namespace: "custom", key: "bean_type" }
             { namespace: "custom", key: "notes" }
             { namespace: "custom", key: "code" }
           ]) { key value }
@@ -170,6 +179,7 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
           image: v.image?.url ?? undefined,
           hoverImage: variantMetaMap["2_gorsel"]?.reference?.image?.url ?? undefined,
           freeShipping: variantMetaMap["ucretsiz_kargo"]?.value === "true",
+          lowStock: variantMetaMap["tukenmek_uzere"]?.value === "true",
           available: v.availableForSale !== false,
         };
       });
@@ -197,6 +207,7 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
         handle: p.handle,
         name: productName,
         description: p.description || "",
+        descriptionHtml: p.descriptionHtml || "",
         price: display.price,
         oldPrice: display.oldPrice,
         image: mainImage,
@@ -207,6 +218,7 @@ export async function fetchShopifyProducts(): Promise<CoffeeProduct[]> {
         origin: metaMap["origin"] ?? undefined,
         process: metaMap["process"] ?? undefined,
         roast: metaMap["roast"] ?? undefined,
+        beanType: metaMap["bean_type"] ?? undefined,
         notes: metaMap["notes"] ? metaMap["notes"].split(",").map((n: string) => n.trim()) : [],
         code: metaMap["code"] ?? p.handle.toUpperCase().slice(0, 6),
         category: p.tags || [],
@@ -231,6 +243,7 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Coffe
         title
         handle
         description
+        descriptionHtml
         tags
         priceRange { minVariantPrice { amount currencyCode } }
         compareAtPriceRange { minVariantPrice { amount currencyCode } }
@@ -246,6 +259,7 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Coffe
             metafields(identifiers: [
               { namespace: "custom", key: "2_gorsel" }
               { namespace: "custom", key: "ucretsiz_kargo" }
+              { namespace: "custom", key: "tukenmek_uzere" }
             ]) {
               key
               value
@@ -262,6 +276,7 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Coffe
           { namespace: "custom", key: "origin" }
           { namespace: "custom", key: "process" }
           { namespace: "custom", key: "roast" }
+          { namespace: "custom", key: "bean_type" }
           { namespace: "custom", key: "notes" }
           { namespace: "custom", key: "code" }
           { namespace: "custom", key: "brewingGuide" }

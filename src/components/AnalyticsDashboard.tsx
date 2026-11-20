@@ -205,7 +205,7 @@ const tooltipStyle = { fontFamily: 'monospace', fontSize: 12, border: '0.5px sol
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsDashboard() {
-  const [dateRange, setDateRange] = useState<DateRange>('month');
+  const [dateRange, setDateRange] = useState<DateRange>('today');
   // Özel aralık: varsayılan bugün 00:00 → şimdi
   const [customStartInput, setCustomStartInput] = useState(() => {
     const d = new Date();
@@ -574,8 +574,11 @@ export default function AnalyticsDashboard() {
                   className={isNewEvent(ev.id) ? 'live-event-new' : undefined}
                   style={{ display: 'flex', flexWrap: 'wrap', columnGap: 10, rowGap: 2, padding: '7px 0', borderBottom: '0.5px solid #f0f0f0', fontSize: 12, alignItems: 'baseline' }}
                 >
-                  <span style={{ color: '#aaa', minWidth: 60, fontSize: 10, flexShrink: 0 }}>
-                    {new Date(ev.ts).toLocaleTimeString('tr-TR')}
+                  <span style={{ color: '#aaa', minWidth: 92, fontSize: 10, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                    {new Date(ev.ts).toLocaleString('tr-TR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit', second: '2-digit',
+                    })}
                   </span>
                   <span style={{ flexShrink: 0 }}>{EVENT_LABELS[ev.type] ?? ev.type}</span>
                   {ev.payload?.productTitle ? (

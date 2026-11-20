@@ -1,5 +1,5 @@
 // src/pages/Urun.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Truck,
@@ -15,6 +15,7 @@ import { fetchShopifyProductByHandle, type CoffeeProduct, type ProductVariant } 
 import { buyNow } from '../lib/buyNow';
 import { cartItemKey } from '../lib/cartKey';
 import ProductInfoSection from '../components/ProductInfoSection';
+import ImageLightbox from '../components/ImageLightbox';
 import { useMetaProductView } from '../hooks/useMetaAnalytics';
 import { useSeo } from '../hooks/useSeo';
 import { getShippingStatus, hasFreeShipping } from '../lib/shipping';
@@ -110,6 +111,8 @@ const Urun = () => {
 
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [imageHovered, setImageHovered] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
   const addToCartRef = useRef<HTMLDivElement>(null);
   const grindRef = useRef<HTMLDivElement>(null);
   const stickyBarRef = useRef<HTMLDivElement>(null);
@@ -305,7 +308,7 @@ const Urun = () => {
 
   return (
     <>
-      <main className="bg-[#fdfaf6] min-h-screen pt-0 md:pt-28 pb-10 md:pb-16 font-sans selection:bg-[#1b1b1b] selection:text-[#f7f0e7]">
+      <main className="bg-[#fdfaf6] min-h-screen pt-0 md:pt-8 pb-10 md:pb-16 font-sans selection:bg-[#1b1b1b] selection:text-[#f7f0e7]">
         <div className="mx-auto max-w-[1440px] px-0 md:px-10">
           
           {/* Breadcrumb */}
@@ -323,23 +326,26 @@ const Urun = () => {
             <div className="w-full border-b lg:border-b-0 lg:border-r border-[#1b1b1b]/10 bg-[#efe5d8]">
               <div
                 className="relative w-full aspect-[4/3] md:aspect-square lg:aspect-auto lg:h-[calc(100vh-130px)] lg:sticky lg:top-[130px] flex items-center justify-center overflow-hidden p-4 lg:p-6 group"
-                onMouseEnter={() => setImageHovered(true)}
-                onMouseLeave={() => setImageHovered(false)}
-                onTouchStart={() => setImageHovered(true)}
-                onTouchEnd={() => setImageHovered(false)}
+                // Hover yalnızca fare ile: dokunmatikte ilk dokunuş görseli çevirmesin, doğrudan açsın
+                onPointerEnter={e => { if (e.pointerType === 'mouse') setImageHovered(true); }}
+                onPointerLeave={e => { if (e.pointerType === 'mouse') setImageHovered(false); }}
+                onClick={() => { if (mainImage) setLightboxIndex(0); }}
+                role={mainImage ? 'button' : undefined}
+                aria-label={mainImage ? 'Görseli büyüt' : undefined}
+                style={mainImage ? { cursor: 'zoom-in' } : undefined}
               >
                 {mainImage ? (
                   <>
                     <img
                       src={mainImage}
                       alt={product.name}
-                      className={`h-full w-full scale-110 md:scale-150 object-contain mix-blend-multiply transition-all duration-1000 group-hover:scale-[1.55] z-10 ${secondImage ? (imageHovered ? 'opacity-0' : 'opacity-100') : ''}`}
+                      className={`h-full w-full scale-110 md:scale-150 object-contain mix-blend-multiply transition-all duration-1000 [@media(hover:hover)]:group-hover:scale-[1.55] z-10 ${secondImage ? (imageHovered ? 'opacity-0' : 'opacity-100') : ''}`}
                     />
                     {secondImage && (
                       <img
                         src={secondImage}
                         alt={product.name}
-                        className={`absolute inset-0 h-full w-full scale-110 md:scale-150 object-contain mix-blend-multiply transition-all duration-1000 group-hover:scale-[1.55] z-10 ${imageHovered ? 'opacity-100' : 'opacity-0'}`}
+                        className={`absolute inset-0 h-full w-full scale-110 md:scale-150 object-contain mix-blend-multiply transition-all duration-1000 [@media(hover:hover)]:group-hover:scale-[1.55] z-10 ${imageHovered ? 'opacity-100' : 'opacity-0'}`}
                       />
                     )}
                   </>
@@ -372,7 +378,13 @@ const Urun = () => {
             <div className="flex flex-col px-5 pt-5 pb-8 md:p-8 lg:p-14 bg-[#fdfaf6]">
               
               <div className="mb-5 md:mb-6">
-              
+                {/* Varyant meta alanı custom.tukenmek_uzere = true */}
+                {selectedVariant?.lowStock && selectedVariant.available !== false && (
+                  <span className="inline-flex items-center gap-1.5 mb-3 md:mb-4 bg-[#b42318] px-2.5 py-1 font-mono text-[0.62rem] font-bold uppercase tracking-[0.18em] text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                    Tükenmek Üzere!
+                  </span>
+                )}
 
                 <h1 className="font-serif text-[1.6rem] leading-[1.15] md:text-[clamp(2rem,3.5vw,3.5rem)] md:leading-[1.05] text-[#1b1b1b] tracking-[-0.02em] mb-3 md:mb-6">
                   {product.name}
@@ -528,6 +540,15 @@ const Urun = () => {
 
           {/* Sekmeli Ürün Bilgisi */}
           <ProductInfoSection product={product} />
+
+          {lightboxIndex !== null && mainImage && (
+            <ImageLightbox
+              images={secondImage ? [mainImage, secondImage] : [mainImage]}
+              startIndex={lightboxIndex}
+              alt={product.name}
+              onClose={closeLightbox}
+            />
+          )}
           
           {/* Uzun Açıklama */}
           <div className="mt-4 md:mt-6 border-t border-[#1b1b1b]/15 pt-10 md:pt-14 pb-6 md:pb-10 relative overflow-hidden">
@@ -538,9 +559,16 @@ const Urun = () => {
               <h2 className="font-serif text-[clamp(2rem,4vw,3rem)] text-[#1b1b1b] leading-[1.1] tracking-[-0.02em] mb-10 text-center">
                 Bu Seçkiyi Yakından Tanıyın
               </h2>
-              <div className="font-sans font-light text-[1rem] md:text-[1.1rem] leading-[2.2] text-[#5c4635] whitespace-pre-line text-center md:text-justify px-4">
-                {product.description}
-              </div>
+              {product.descriptionHtml ? (
+                <div
+                  className="shopify-rte w-full font-sans font-light text-[1rem] md:text-[1.1rem] leading-[1.85] text-[#5c4635] px-4"
+                  dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+                />
+              ) : (
+                <div className="font-sans font-light text-[1rem] md:text-[1.1rem] leading-[1.85] text-[#5c4635] whitespace-pre-line px-4">
+                  {product.description}
+                </div>
+              )}
             </div>
           </div>
 

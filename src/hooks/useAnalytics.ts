@@ -13,7 +13,21 @@ import { initialTraffic, isLikelyBot } from '../lib/traffic';
 // Yönetim sayfaları ziyaret olarak sayılmaz.
 const EXCLUDED_PATHS = ['/analiz'];
 const isExcluded = (path: string) => EXCLUDED_PATHS.some((p) => path.startsWith(p));
-const trackingDisabled = () => typeof window === 'undefined' || isLikelyBot();
+// Yerel geliştirme (npm run dev, localhost, yerel ağ IP'leri) analiz verisine yazılmaz.
+const isLocalEnvironment = () => {
+  if (import.meta.env.DEV) return true;
+  const host = window.location.hostname;
+  return (
+    host === 'localhost' ||
+    host === '[::1]' ||
+    host.endsWith('.localhost') ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
+};
+const trackingDisabled = () => typeof window === 'undefined' || isLocalEnvironment() || isLikelyBot();
 
 // Bu sayfa yüklemesinde session_start gönderilen kimlikler ve onaysız başlayanlar (bellekte)
 const startedSessions = new Set<string>();

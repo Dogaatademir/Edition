@@ -68,7 +68,7 @@ const ProductInfoSection: React.FC<{ product: CoffeeProduct }> = ({ product }) =
       );
       case 'blend': return (
         <>
-          <ContentBlock title="Çekirdek Türü" body="Arabica" />
+          <ContentBlock title="Çekirdek Türü" body={product.beanType ?? 'Arabica'} />
           <ContentBlock title="Menşei" body={product.origin ?? 'Afrika, Güney ve Orta Amerika'} />
           <ContentBlock title="İşlem" body={product.process ?? 'Yıkanmış / Doğal kombinasyonu'} />
         </>

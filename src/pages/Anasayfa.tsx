@@ -472,7 +472,6 @@ function InstagramSection() {
 const heroSlides = [
   { title: "Üyelere Özel\n%5 İndirim", subtitle: "Dünya Kahvelerini Keşfetmeniz İçin", image: "/BANNER/W7.jpg", link: "/kahveler" },
   { title: "Tüm Ürünlerde\n%20'ye Varan İndirim", subtitle: "Eşsiz Lezzetleri Keşfedin", image: "/BANNER/s1.jpg", link: "/kahveler" },
-  { title: "2. Ürüne %15\n3. Ürüne %20 İndirim", subtitle: "Farklı Lezzetler Denemeniz İçin", image: "/BANNER/W19.jpg", link: "/kahveler" },
   { title: "3500 TL ve Üzeri Siparişlerde\n%15 İndirim", subtitle: "Kafe ve İşletmelere Özel", image: "/BANNER/W11.jpg", link: "/kahveler" },
 ];
 
