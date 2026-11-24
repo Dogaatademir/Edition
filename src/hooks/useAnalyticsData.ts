@@ -132,6 +132,34 @@ function makeBuckets(start: Date, end: Date) {
 
 interface Order { sessionId: string; total: number; ts: Date; items: { title: string; quantity: number; total: number | null }[] }
 
+/** Sipariş kimliğini karşılaştırılabilir hale getirir: "gid://shopify/OrderIdentity/123" ve "123" → "123" */
+const normOrderId = (v: unknown) => {
+  if (v == null || v === '') return null;
+  const str = String(v);
+  return str.match(/(\d+)\s*$/)?.[1] ?? str;
+};
+const isWebhookPurchase = (p: Record<string, unknown> | null) => p?.source === 'webhook';
+const SAME_ORDER_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Aynı sipariş hem Shopify webhook'u (sunucu) hem de Shopify pikseli (tarayıcı) tarafından
+ * yazılabilir. Webhook kaydı esas alınır; aynı siparişe ait piksel kaydı düşülür.
+ * Kimliksiz piksel kaydı, aynı ziyarette 2 saat içinde bir webhook siparişi varsa düşülür.
+ */
+function withoutDuplicatePurchases<T extends { type: string; payload: Record<string, unknown> | null; ts: string; session_id?: string }>(events: T[]): T[] {
+  const webhook = events.filter((e) => e.type === 'purchase' && isWebhookPurchase(e.payload));
+  if (webhook.length === 0) return events;
+  const webhookIds = new Set(webhook.map((e) => normOrderId(e.payload?.orderId)).filter(Boolean));
+  return events.filter((e) => {
+    if (e.type !== 'purchase' || isWebhookPurchase(e.payload)) return true;
+    const id = normOrderId(e.payload?.orderId);
+    if (id) return !webhookIds.has(id);
+    if (!e.session_id) return true;
+    const t = new Date(e.ts).getTime();
+    return !webhook.some((w) => w.session_id === e.session_id && Math.abs(new Date(w.ts).getTime() - t) <= SAME_ORDER_WINDOW_MS);
+  });
+}
+
 /** Aynı sipariş birden fazla kez gelmişse (ör. teşekkür sayfası yenilendi) bir kez say. */
 function dedupeOrders(events: EventRow[]): Order[] {
   const seen = new Set<string>();
@@ -139,7 +167,7 @@ function dedupeOrders(events: EventRow[]): Order[] {
   events.forEach((e) => {
     if (e.type !== 'purchase') return;
     const p = e.payload ?? {};
-    const id = p.orderId ? String(p.orderId) : `${e.session_id}|${e.ts}`;
+    const id = normOrderId(p.orderId) ?? `${e.session_id}|${e.ts}`;
     if (seen.has(id)) return;
     seen.add(id);
     const rawItems = Array.isArray(p.items) ? (p.items as Record<string, unknown>[]) : [];
@@ -301,8 +329,10 @@ export function computeAnalytics(
 
   const pvCur = raw.pageViews.filter((r) => inRange(r.ts, start, end));
   const pvPrev = raw.pageViews.filter((r) => inRange(r.ts, prevStart, prevEnd));
-  const evCur = raw.events.filter((r) => inRange(r.ts, start, end));
-  const evPrev = raw.events.filter((r) => inRange(r.ts, prevStart, prevEnd));
+  // Webhook + piksel çift kayıtları tek siparişe indir
+  const events = withoutDuplicatePurchases(raw.events);
+  const evCur = events.filter((r) => inRange(r.ts, start, end));
+  const evPrev = events.filter((r) => inRange(r.ts, prevStart, prevEnd));
   const ordersCur = dedupeOrders(evCur);
   const ordersPrev = dedupeOrders(evPrev);
 
@@ -373,7 +403,7 @@ export function computeAnalytics(
     if (pv.page) pageCounts.set(pv.page, { count: (pageCounts.get(pv.page)?.count ?? 0) + 1 });
   });
 
-  const firstTracked = raw.events.find((e) => e.type === 'session_start' || e.type === 'anon_visit');
+  const firstTracked = events.find((e) => e.type === 'session_start' || e.type === 'anon_visit');
 
   return {
     current,
@@ -386,7 +416,7 @@ export function computeAnalytics(
     topCartProducts: rank(cartCounts),
     topPages: rank(pageCounts),
     trackingSince: firstTracked?.ts ?? null,
-    liveEvents: raw.liveEvents,
+    liveEvents: withoutDuplicatePurchases(raw.liveEvents),
     activeVisitors: raw.activeVisitors,
   };
 }

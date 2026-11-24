@@ -38,3 +38,10 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/analytics-data/deno.json"
 entrypoint = "./functions/analytics-data/index.ts"
+
+# Shopify orders/create webhook'u — Shopify JWT göndermez, istek HMAC imzasıyla doğrulanır
+[functions.shopify-order-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/shopify-order-webhook/deno.json"
+entrypoint = "./functions/shopify-order-webhook/index.ts"
